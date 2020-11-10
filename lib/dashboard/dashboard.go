@@ -5,6 +5,11 @@ import (
 	"fmt"
 	"image"
 	"image/color"
+	"io"
+	"io/ioutil"
+	"net/http"
+	"net/url"
+	"os"
 	"strings"
 
 	"github.com/disintegration/imaging"
@@ -40,6 +45,22 @@ func NewDashboard(device string) (*Dashboard, error) {
 
 // DisplayImage accepts a path to image file and displays it on the screen
 func (d *Dashboard) DisplayImage(filePath string) error {
+
+	// If this is a URL, let's download it
+	if isValidURL(filePath) {
+		tmpfile, err := ioutil.TempFile("", "epd-image")
+		if err != nil {
+			return err
+		}
+		defer os.Remove(tmpfile.Name()) // clean up
+
+		err = downloadFile(filePath, tmpfile.Name())
+		if err != nil {
+			return err
+		}
+		filePath = tmpfile.Name()
+	}
+
 	img, err := d.getImageFromFilePath(filePath)
 
 	if err != nil {
@@ -67,44 +88,41 @@ func (d *Dashboard) DisplayText(text string) error {
 	dc.Fill()
 	dc.SetRGB(0, 0, 0)
 
-	const padding float64 = 5 // padding
-
 	var (
-		yPad                      = padding
-		xWidth                    = float64(d.E.Width) - (padding * 2)
-		fontSize          float64 = 300 // initial font size
-		fontSizeReduction float64 = 10  // reduce the font size by this much until message fits in the display
-		lineSpacing       float64 = 1.5
+		maxWidth, maxHeight           float64 = float64(d.E.Width), float64(d.E.Height)
+		fontSize                      float64 = 300  // initial font size
+		fontSizeReduction             float64 = 0.95 // reduce the font size by this much until message fits in the display
+		fontSizeMinimum               float64 = 10   // Smallest font size before giving up
+		lineSpacing                   float64 = 1
+		measuredWidth, measuredHeight float64
 	)
 
 	font, err := truetype.Parse(goregular.TTF)
 	if err != nil {
 		return err
 	}
-
 	for {
 		face := truetype.NewFace(font, &truetype.Options{Size: fontSize})
 		dc.SetFontFace(face)
 
-		stringLines := dc.WordWrap(text, xWidth)
+		stringLines := dc.WordWrap(text, maxWidth)
 
-		sw, sh := dc.MeasureMultilineString(strings.Join(stringLines, "\n"), lineSpacing)
-		verticalSpace := float64(d.E.Height) - sh
-		if verticalSpace/2 > padding {
-			yPad = verticalSpace / 2
-		}
-		if sw < float64(d.E.Width)-(2*padding) && sh <= float64(d.E.Height)-padding {
+		measuredWidth, measuredHeight = dc.MeasureMultilineString(strings.Join(stringLines, "\n"), lineSpacing)
+
+		// If the message fits within the frame, let's break. Otherwise reduce the font size and try again
+		if measuredWidth < maxWidth && measuredHeight <= maxHeight {
 			break
+		} else {
+			fontSize = fontSize * fontSizeReduction
 		}
-		fontSize = fontSize - fontSizeReduction
 
-		if fontSize < fontSizeReduction {
+		if fontSize < fontSizeMinimum {
 			return fmt.Errorf("unable to fit text on screen: \n %s", text)
 		}
 		// TODO: debug logging: fmt.Printf("font size: %v\n", fontSize)
 	}
 
-	dc.DrawStringWrapped(text, padding, yPad, 0.0, 0.0, xWidth, lineSpacing, gg.AlignCenter)
+	dc.DrawStringWrapped(text, 0, (maxHeight-measuredHeight)/2-(fontSize/4), 0, 0, maxWidth, lineSpacing, gg.AlignCenter)
 	buf := d.convertImage(dc.Image())
 
 	d.E.Display(buf)
@@ -162,4 +180,52 @@ func (d *Dashboard) convertImage(img image.Image) []byte {
 	}
 
 	return buffer
+}
+
+func downloadFile(fullURLFIle, localFilePath string) (err error) {
+
+	// Create blank file
+	file, err := os.Create(localFilePath)
+	if err != nil {
+		return fmt.Errorf("Error creating temporary file:\n %s", err)
+	}
+
+	// Put content on file
+	client := http.Client{
+		CheckRedirect: func(r *http.Request, via []*http.Request) error {
+			r.URL.Opaque = r.URL.Path
+			return nil
+		},
+	}
+
+	// Invoke HTTP request
+	resp, err := client.Get(fullURLFIle)
+	defer resp.Body.Close()
+	if err != nil {
+		return fmt.Errorf("Error downloading logo:\n %s", err)
+	}
+
+	// Pipe data to disk
+	_, err = io.Copy(file, resp.Body)
+	defer file.Close()
+	if err != nil {
+		return fmt.Errorf("Error writing logo to disk:\n %s", err)
+	}
+
+	return nil
+}
+
+// isValidURL determins if a string is an actual URL
+func isValidURL(toTest string) bool {
+	_, err := url.ParseRequestURI(toTest)
+	if err != nil {
+		return false
+	}
+
+	u, err := url.Parse(toTest)
+	if err != nil || u.Scheme == "" || u.Host == "" {
+		return false
+	}
+
+	return true
 }

@@ -9,14 +9,16 @@ import (
 )
 
 var (
-	debug  bool
-	device string
+	debug, initialize, sleep bool
+	device                   string
 )
 
 func init() {
 	log.SetFlags(0)
 	rootCmd.PersistentFlags().BoolVar(&debug, "debug", false, "enable debug logging")
 	rootCmd.PersistentFlags().StringVarP(&device, "device", "d", "epd7in5v2", "select device type")
+	rootCmd.PersistentFlags().BoolVarP(&initialize, "initialize", "i", false, "initialize (wake) the device before updating it. Required if in sleep mode")
+	rootCmd.PersistentFlags().BoolVarP(&sleep, "sleep", "s", false, "set the device to sleep mode after updating display")
 }
 
 // rootCmd represents the base command when called without any subcommands
@@ -38,4 +40,9 @@ func Execute(version string) {
 		fmt.Println(err)
 		os.Exit(1)
 	}
+}
+
+func errorOut(msg string) {
+	fmt.Println(msg)
+	os.Exit(1)
 }

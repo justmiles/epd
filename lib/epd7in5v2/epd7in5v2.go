@@ -154,7 +154,6 @@ func (epd EPD) HardwareReset() {
 // SendCommand to device
 func (epd EPD) SendCommand(command ...byte) {
 	debug("epd -> SendCommand %v", command)
-
 	digitalWrite(epd.dcPin, rpio.Low)
 	digitalWrite(epd.csPin, rpio.Low)
 	spiWrite(command...)
@@ -164,7 +163,6 @@ func (epd EPD) SendCommand(command ...byte) {
 // SendData to device
 func (epd EPD) SendData(command ...byte) {
 	debug("epd -> SendData %v", command)
-
 	digitalWrite(epd.dcPin, rpio.High)
 	digitalWrite(epd.csPin, rpio.Low)
 	spiWrite(command...)
@@ -234,7 +232,6 @@ func (epd EPD) ReadBusy() {
 		epd.SendCommand(getStatus)
 		for digitalRead(epd.busyPin) == rpio.Low {
 			debug("epd -> ReadBusy")
-
 			epd.SendCommand(getStatus)
 			delayMS(200)
 		}
@@ -246,6 +243,7 @@ func (epd EPD) ReadBusy() {
 	case <-ch:
 		return
 	case <-timeout:
+		// TODO: consider initing the device after timeout
 		fmt.Println("Timeout waiting for EPD busy status. Did you inititalize (wake) the device?")
 		os.Exit(2)
 	}
