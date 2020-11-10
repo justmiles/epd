@@ -11,6 +11,8 @@ import (
 )
 
 const (
+	debugEnabled bool = false
+
 	epdWidth  int = 800
 	epdHeight int = 480
 
@@ -92,7 +94,6 @@ func New(resetPin, dcPin, csPin, busyPin uint8) (*EPD, error) {
 
 	rpio.SpiSpeed(4000000)
 	rpio.SpiChipSelect(0)
-	// rpio.SpiChipSelectPolarity(0, 1)
 
 	return &EPD{
 		resetPin: resetPin,

@@ -1,6 +1,7 @@
 package epd7in5v2
 
 import (
+	"fmt"
 	"log"
 	"os"
 	"time"
@@ -33,7 +34,6 @@ func spiWrite(command ...byte) {
 	}
 
 	rpio.SpiTransmit(command...)
-
 	rpio.SpiEnd(rpio.Spi0)
 
 }
@@ -41,6 +41,8 @@ func spiWrite(command ...byte) {
 var l = log.New(os.Stdout, "", 0)
 
 func debug(msg string, i ...interface{}) {
-	// l.SetPrefix(time.Now().Format("2006-01-02 15:04:05 - "))
-	// l.Print(fmt.Sprintf(msg, i...))
+	if debugEnabled {
+		l.SetPrefix(time.Now().Format("2006-01-02 15:04:05 - "))
+		l.Print(fmt.Sprintf(msg, i...))
+	}
 }
