@@ -21,6 +21,6 @@ Use "epd [command] --help" for more information about a command.
 
 ## Supported Displays
 
-| Model     | Tested On         |
-| --------- | ----------------- |
-| epd7in5v2 | Raspberry PI Zero |
+| Model                                                           | Tested On         |
+| --------------------------------------------------------------- | ----------------- |
+| [epd7in5v2](https://www.waveshare.com/wiki/7.5inch_e-Paper_HAT) | Raspberry PI Zero |

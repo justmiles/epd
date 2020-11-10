@@ -5,8 +5,6 @@ import (
 	"log"
 	"os"
 
-	epd7in5v2 "github.com/justmiles/epd/lib/epd7in5v2"
-
 	"github.com/spf13/cobra"
 )
 
@@ -26,16 +24,7 @@ var rootCmd = &cobra.Command{
 	Use:   "epd",
 	Short: "Interact with a supported Electronic Paper Display",
 	Run: func(rootCmd *cobra.Command, args []string) {
-		epd, err := epd7in5v2.NewRaspberryPiHat()
-		if err != nil {
-			panic(err)
-		}
-
-		err = epd.DisplayText(`Fuck it!`)
-		if err != nil {
-			panic(err)
-		}
-
+		// TODO display help
 	},
 }
 
@@ -49,17 +38,4 @@ func Execute(version string) {
 		fmt.Println(err)
 		os.Exit(1)
 	}
-}
-
-func newEPD() (e *epd7in5v2.EPD, err error) {
-	e, err = epd7in5v2.NewRaspberryPiHat()
-	if err != nil {
-		return nil, err
-	}
-
-	if device != "epd7in5v2" {
-		return nil, fmt.Errorf("Device %s is not supported", device)
-	}
-
-	return e, nil
 }

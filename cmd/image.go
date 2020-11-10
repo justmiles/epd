@@ -9,11 +9,13 @@ import (
 	"net/url"
 	"os"
 
+	"github.com/justmiles/epd/lib/dashboard"
 	"github.com/spf13/cobra"
 )
 
 var (
 	displayImage string
+	previewImage bool
 )
 
 func init() {
@@ -21,6 +23,7 @@ func init() {
 	rootCmd.AddCommand(displayImageCmd)
 
 	displayImageCmd.PersistentFlags().StringVarP(&displayImage, "image", "i", "", "image to display")
+	displayImageCmd.PersistentFlags().BoolVar(&previewImage, "preview", false, "preview the image instead of updating the display")
 }
 
 var displayImageCmd = &cobra.Command{
@@ -28,7 +31,7 @@ var displayImageCmd = &cobra.Command{
 	Short: "Display an image on your EPD",
 	Run: func(cmd *cobra.Command, args []string) {
 
-		e, err := newEPD()
+		d, err := dashboard.NewDashboard(device)
 		if err != nil {
 			panic(err)
 		}
@@ -48,7 +51,7 @@ var displayImageCmd = &cobra.Command{
 			displayImage = tmpfile.Name()
 		}
 
-		err = e.DisplayImage(displayImage)
+		err = d.DisplayImage(displayImage)
 		if err != nil {
 			panic(err)
 		}

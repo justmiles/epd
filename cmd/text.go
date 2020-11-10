@@ -3,6 +3,7 @@ package cmd
 import (
 	"log"
 
+	"github.com/justmiles/epd/lib/dashboard"
 	"github.com/spf13/cobra"
 )
 
@@ -22,12 +23,12 @@ var displayTextCmd = &cobra.Command{
 	Short: "Display text on your EPD",
 	Run: func(cmd *cobra.Command, args []string) {
 
-		e, err := newEPD()
+		d, err := dashboard.NewDashboard(device)
 		if err != nil {
 			panic(err)
 		}
 
-		err = e.DisplayText(displayText)
+		err = d.DisplayText(displayText)
 		if err != nil {
 			panic(err)
 		}

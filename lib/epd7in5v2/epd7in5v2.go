@@ -4,13 +4,10 @@ package epd7in5v2
 
 import (
 	"fmt"
-	"image/color"
-	"strings"
+	"os"
+	"time"
 
-	"github.com/fogleman/gg"
-	"github.com/golang/freetype/truetype"
 	rpio "github.com/stianeikeland/go-rpio/v4"
-	"golang.org/x/image/font/gofont/goregular"
 )
 
 const (
@@ -64,6 +61,9 @@ type EPD struct {
 	dcPin    uint8
 	csPin    uint8
 	busyPin  uint8
+
+	Height int
+	Width  int
 }
 
 // NewRaspberryPiHat intialized the EDP for Raspberry PI
@@ -78,16 +78,29 @@ func NewRaspberryPiHat() (*EPD, error) {
 
 // New EPD7in5_V2 str
 func New(resetPin, dcPin, csPin, busyPin uint8) (*EPD, error) {
+
+	// rpio.Mode()
 	err := rpio.Open()
 	if err != nil {
 		return nil, err
 	}
+
+	rpio.PinMode(rpio.Pin(resetPin), rpio.Mode(rpio.Output))
+	rpio.PinMode(rpio.Pin(dcPin), rpio.Mode(rpio.Output))
+	rpio.PinMode(rpio.Pin(csPin), rpio.Mode(rpio.Output))
+	rpio.PinMode(rpio.Pin(busyPin), rpio.Mode(rpio.Input))
+
+	rpio.SpiSpeed(4000000)
+	rpio.SpiChipSelect(0)
+	// rpio.SpiChipSelectPolarity(0, 1)
 
 	return &EPD{
 		resetPin: resetPin,
 		dcPin:    dcPin,
 		csPin:    csPin,
 		busyPin:  busyPin,
+		Height:   epdHeight,
+		Width:    epdWidth,
 	}, nil
 }
 
@@ -128,6 +141,7 @@ func (epd EPD) Clear() {
 
 // HardwareReset resets the hardware
 func (epd EPD) HardwareReset() {
+	debug("epd -> HardwareReset")
 	digitalWrite(epd.resetPin, rpio.High)
 	delayMS(200)
 	digitalWrite(epd.resetPin, rpio.Low)
@@ -138,6 +152,8 @@ func (epd EPD) HardwareReset() {
 
 // SendCommand to device
 func (epd EPD) SendCommand(command ...byte) {
+	debug("epd -> SendCommand %v", command)
+
 	digitalWrite(epd.dcPin, rpio.Low)
 	digitalWrite(epd.csPin, rpio.Low)
 	spiWrite(command...)
@@ -146,6 +162,8 @@ func (epd EPD) SendCommand(command ...byte) {
 
 // SendData to device
 func (epd EPD) SendData(command ...byte) {
+	debug("epd -> SendData %v", command)
+
 	digitalWrite(epd.dcPin, rpio.High)
 	digitalWrite(epd.csPin, rpio.Low)
 	spiWrite(command...)
@@ -154,6 +172,8 @@ func (epd EPD) SendData(command ...byte) {
 
 // HardwareInit used to initialize e-Paper or wakeup e-Paper from sleep mode.
 func (epd EPD) HardwareInit() {
+	debug("epd -> HardwareInit")
+
 	epd.HardwareReset()
 
 	epd.SendCommand(powerSetting)
@@ -161,26 +181,32 @@ func (epd EPD) HardwareInit() {
 	epd.SendData(deepSleep)
 	epd.SendData(0x3f) // VDH=15V
 	epd.SendData(0x3f) // VDL=-15V
+	delayMS(200)
 
 	epd.SendCommand(powerOn)
 	delayMS(100)
 	epd.ReadBusy()
+	delayMS(200)
 
 	epd.SendCommand(panelSetting)
 	epd.SendData(0x1F) // KW-3f   KWR-2F	BWROTP 0f	BWOTP 1f
+	delayMS(200)
 
 	epd.SendCommand(resolutionSetting) // tres
 	epd.SendData(powerOffSequenceSetting)
 	epd.SendData(vcomLut)
 	epd.SendData(powerSetting) // gate 480
 	epd.SendData(0xE0)
+	delayMS(200)
 
 	epd.SendCommand(0x15)
 	epd.SendData(panelSetting)
+	delayMS(200)
 
 	epd.SendCommand(vcomAndDataIntervalSetting) // VCOM AND DATA INTERVAL SETTING
 	epd.SendData(dataStartTransmission1)
 	epd.SendData(deepSleep)
+	delayMS(200)
 
 	epd.SendCommand(tconSetting)
 	epd.SendData(b2WLut)
@@ -188,92 +214,47 @@ func (epd EPD) HardwareInit() {
 
 // ReadBusy reads
 func (epd EPD) ReadBusy() {
-	epd.SendCommand(getStatus)
-	for digitalRead(epd.busyPin) == rpio.Low {
+
+	// Setup Timeout
+	ch := make(chan bool, 1)
+	timeout := make(chan bool, 1)
+	defer close(ch)
+	defer close(timeout)
+
+	// Timeout function
+	go func() {
+		time.Sleep(60 * time.Second)
+		timeout <- true
+	}()
+
+	// Wait for busy
+	go func() {
+
 		epd.SendCommand(getStatus)
-		delayMS(200)
+		for digitalRead(epd.busyPin) == rpio.Low {
+			debug("epd -> ReadBusy")
+
+			epd.SendCommand(getStatus)
+			delayMS(200)
+		}
+
+		ch <- true
+	}()
+
+	select {
+	case <-ch:
+		return
+	case <-timeout:
+		fmt.Println("Timeout waiting for EPD busy status. Did you inititalize (wake) the device?")
+		os.Exit(2)
 	}
 }
 
 // Sleep is used to set the device to sleep mode
 func (epd EPD) Sleep() {
-	epd.SendCommand(powerOff) // powerOff
+	epd.SendCommand(powerOff)
 	epd.ReadBusy()
 
-	epd.SendCommand(deepSleep) // deepSleep
+	epd.SendCommand(deepSleep)
 	epd.SendData(0xA5)
-}
-
-// DisplayImage accepts a path to image file and displays it on the screen
-func (epd EPD) DisplayImage(filePath string) error {
-	img, err := getImageFromFilePath(filePath)
-
-	if err != nil {
-		return err
-	}
-
-	buf := convertImage(img)
-	epd.Display(buf)
-	return nil
-}
-
-// DisplayText accepts a string text and displays it on the screen
-func (epd EPD) DisplayText(text string) error {
-
-	// Create new logo context
-	dc := gg.NewContext(epdWidth, epdHeight)
-
-	// Set Background Color
-	dc.SetRGB(1, 1, 1)
-	dc.Clear()
-
-	// Set font color
-	dc.SetColor(color.Black)
-
-	dc.Fill()
-	dc.SetRGB(0, 0, 0)
-
-	const padding float64 = 5 // padding
-
-	var (
-		yPad                      = padding
-		xWidth                    = float64(epdWidth) - (padding * 2)
-		fontSize          float64 = 300 // initial font size
-		fontSizeReduction float64 = 10  // reduce the font size by this much until message fits in the display
-		lineSpacing       float64 = 1.5
-	)
-
-	font, err := truetype.Parse(goregular.TTF)
-	if err != nil {
-		return err
-	}
-
-	for {
-		face := truetype.NewFace(font, &truetype.Options{Size: fontSize})
-		dc.SetFontFace(face)
-
-		stringLines := dc.WordWrap(text, xWidth)
-
-		sw, sh := dc.MeasureMultilineString(strings.Join(stringLines, "\n"), lineSpacing)
-		verticalSpace := float64(epdHeight) - sh
-		if verticalSpace/2 > padding {
-			yPad = verticalSpace / 2
-		}
-		if sw < float64(epdWidth)-(2*padding) && sh <= float64(epdHeight)-padding {
-			break
-		}
-		fontSize = fontSize - fontSizeReduction
-
-		if fontSize < fontSizeReduction {
-			return fmt.Errorf("unable to fit text on screen: \n %s", text)
-		}
-		// TODO: debug logging: fmt.Printf("font size: %v\n", fontSize)
-	}
-
-	dc.DrawStringWrapped(text, padding, yPad, 0.0, 0.0, xWidth, lineSpacing, gg.AlignCenter)
-	buf := convertImage(dc.Image())
-
-	epd.Display(buf)
-
-	return nil
 }
