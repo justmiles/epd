@@ -3,6 +3,7 @@ package epd7in5v2
 // ported from https://github.com/waveshare/e-Paper/blob/master/RaspberryPi%26JetsonNano/c/lib/e-Paper/EPD_7in5_V2.c
 
 import (
+	"fmt"
 	"image/color"
 	"strings"
 
@@ -15,6 +16,46 @@ import (
 const (
 	epdWidth  int = 800
 	epdHeight int = 480
+
+	// Byte settings pulled from
+	// https://github.com/waveshare/e-Paper/blob/751a9fb93fdd486511222777b0070c51bf436386/RaspberryPi%26JetsonNano/c/lib/e-Paper/EPD_7in5.c#L25
+	panelSetting                 byte = 0x00
+	powerSetting                 byte = 0x01
+	powerOff                     byte = 0x02
+	powerOffSequenceSetting      byte = 0x03
+	powerOn                      byte = 0x04
+	powerOnMeasure               byte = 0x05
+	boosterSoftStart             byte = 0x06
+	deepSleep                    byte = 0x07
+	dataStartTransmission1       byte = 0x10
+	dataStop                     byte = 0x11
+	displayRefresh               byte = 0x12
+	dataStartTransmission2       byte = 0x13
+	vcomLut                      byte = 0x20
+	w2WLut                       byte = 0x21
+	b2WLut                       byte = 0x22
+	w2BLut                       byte = 0x23
+	b2BLut                       byte = 0x24
+	pllControl                   byte = 0x30
+	temperatureSensorCalibration byte = 0x40
+	temperatureSensorSelection   byte = 0x41
+	temperatureSensorWrite       byte = 0x42
+	temperatureSensorRead        byte = 0x43
+	vcomAndDataIntervalSetting   byte = 0x50
+	lowPowerDetection            byte = 0x51
+	tconSetting                  byte = 0x60
+	resolutionSetting            byte = 0x61
+	getStatus                    byte = 0x71
+	autoMeasureVcom              byte = 0x80
+	readVcomValue                byte = 0x81
+	vcmDcSetting                 byte = 0x82
+	partialWindow                byte = 0x90
+	partialIn                    byte = 0x91
+	partialOut                   byte = 0x92
+	programMode                  byte = 0xa0
+	activeProgram                byte = 0xa1
+	readOtpData                  byte = 0xa2
+	powerSaving                  byte = 0xe3
 )
 
 // EPD ..
@@ -50,9 +91,9 @@ func New(resetPin, dcPin, csPin, busyPin uint8) (*EPD, error) {
 	}, nil
 }
 
-// Display sends the image buffer in RAM to e-Paper and display
+// Display is used to transmit a frame of image and display
 func (epd EPD) Display(img []byte) {
-	epd.SendCommand(0x13)
+	epd.SendCommand(dataStartTransmission2)
 	delayMS(2)
 
 	for i := 0; i < len(img); i++ {
@@ -64,22 +105,22 @@ func (epd EPD) Display(img []byte) {
 
 // TurnOnDisplay turns on the device display
 func (epd EPD) TurnOnDisplay() {
-	epd.SendCommand(0x12)
+	epd.SendCommand(displayRefresh)
 	delayMS(100)
 	epd.ReadBusy()
 }
 
-// Clear the display
+// Clear is used to clear the e-paper to white
 func (epd EPD) Clear() {
-	epd.SendCommand(0x10)
+	epd.SendCommand(dataStartTransmission1)
 
 	for i := 1; i <= int(epdWidth*epdHeight/8); i++ {
-		epd.SendData(0x00)
+		epd.SendData(panelSetting)
 	}
 
-	epd.SendCommand(0x13)
+	epd.SendCommand(dataStartTransmission2)
 	for i := 1; i <= int(epdWidth*epdHeight/8); i++ {
-		epd.SendData(0x00)
+		epd.SendData(panelSetting)
 	}
 
 	epd.TurnOnDisplay()
@@ -111,60 +152,59 @@ func (epd EPD) SendData(command ...byte) {
 	digitalWrite(epd.csPin, rpio.High)
 }
 
-// HardwareInit inits the hardware
+// HardwareInit used to initialize e-Paper or wakeup e-Paper from sleep mode.
 func (epd EPD) HardwareInit() {
 	epd.HardwareReset()
 
-	epd.SendCommand(0x01) // Power Setting
-	epd.SendData(0x07)
-	epd.SendData(0x07) // VGH=20V,VGL=-20V
+	epd.SendCommand(powerSetting)
+	epd.SendData(deepSleep)
+	epd.SendData(deepSleep)
 	epd.SendData(0x3f) // VDH=15V
 	epd.SendData(0x3f) // VDL=-15V
 
-	epd.SendCommand(0x04) // POWER ON
+	epd.SendCommand(powerOn)
 	delayMS(100)
 	epd.ReadBusy()
 
-	epd.SendCommand(0x00) // PANNEL SETTING
-	epd.SendData(0x1F)    // KW-3f   KWR-2F	BWROTP 0f	BWOTP 1f
+	epd.SendCommand(panelSetting)
+	epd.SendData(0x1F) // KW-3f   KWR-2F	BWROTP 0f	BWOTP 1f
 
-	epd.SendCommand(0x61) // tres
-	epd.SendData(0x03)    // source 800
-	epd.SendData(0x20)
-	epd.SendData(0x01) // gate 480
+	epd.SendCommand(resolutionSetting) // tres
+	epd.SendData(powerOffSequenceSetting)
+	epd.SendData(vcomLut)
+	epd.SendData(powerSetting) // gate 480
 	epd.SendData(0xE0)
 
 	epd.SendCommand(0x15)
-	epd.SendData(0x00)
+	epd.SendData(panelSetting)
 
-	epd.SendCommand(0x50) // VCOM AND DATA INTERVAL SETTING
-	epd.SendData(0x10)
-	epd.SendData(0x07)
+	epd.SendCommand(vcomAndDataIntervalSetting) // VCOM AND DATA INTERVAL SETTING
+	epd.SendData(dataStartTransmission1)
+	epd.SendData(deepSleep)
 
-	epd.SendCommand(0x60) // TCON SETTING
-	epd.SendData(0x22)
+	epd.SendCommand(tconSetting)
+	epd.SendData(b2WLut)
 }
 
 // ReadBusy reads
 func (epd EPD) ReadBusy() {
-	epd.SendCommand(0x71)
+	epd.SendCommand(getStatus)
 	for digitalRead(epd.busyPin) == rpio.Low {
-		// fmt.Println("e-Paper busy")
-		epd.SendCommand(0x71)
+		epd.SendCommand(getStatus)
 		delayMS(200)
 	}
 }
 
-// Sleep enters sleep mode
+// Sleep is used to set the device to sleep mode
 func (epd EPD) Sleep() {
-	epd.SendCommand(0x02) // POWER_OFF
+	epd.SendCommand(powerOff) // powerOff
 	epd.ReadBusy()
 
-	epd.SendCommand(0x07) // DEEP_SLEEP
+	epd.SendCommand(deepSleep) // deepSleep
 	epd.SendData(0xA5)
 }
 
-// DisplayImage an image file and displays on the screen
+// DisplayImage accepts a path to image file and displays it on the screen
 func (epd EPD) DisplayImage(filePath string) error {
 	img, err := getImageFromFilePath(filePath)
 
@@ -177,7 +217,7 @@ func (epd EPD) DisplayImage(filePath string) error {
 	return nil
 }
 
-// DisplayText renders the contents on the screen
+// DisplayText accepts a string text and displays it on the screen
 func (epd EPD) DisplayText(text string) error {
 
 	// Create new logo context
@@ -190,17 +230,17 @@ func (epd EPD) DisplayText(text string) error {
 	// Set font color
 	dc.SetColor(color.Black)
 
-	const padding float64 = 5 // padding
-
 	dc.Fill()
 	dc.SetRGB(0, 0, 0)
 
+	const padding float64 = 5 // padding
+
 	var (
-		yPad                = padding
-		xWidth              = float64(epdWidth) - (padding * 2)
-		fontSize    float64 = 100
-		r           float64 = float64(epdHeight) / 10 // font reduction size
-		lineSpacing float64 = 1.3
+		yPad                      = padding
+		xWidth                    = float64(epdWidth) - (padding * 2)
+		fontSize          float64 = 300 // initial font size
+		fontSizeReduction float64 = 10  // reduce the font size by this much until message fits in the display
+		lineSpacing       float64 = 1.5
 	)
 
 	font, err := truetype.Parse(goregular.TTF)
@@ -222,7 +262,12 @@ func (epd EPD) DisplayText(text string) error {
 		if sw < float64(epdWidth)-(2*padding) && sh <= float64(epdHeight)-padding {
 			break
 		}
-		fontSize = fontSize - r
+		fontSize = fontSize - fontSizeReduction
+
+		if fontSize < fontSizeReduction {
+			return fmt.Errorf("unable to fit text on screen: \n %s", text)
+		}
+		// TODO: debug logging: fmt.Printf("font size: %v\n", fontSize)
 	}
 
 	dc.DrawStringWrapped(text, padding, yPad, 0.0, 0.0, xWidth, lineSpacing, gg.AlignCenter)
