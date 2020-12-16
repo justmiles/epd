@@ -40,49 +40,52 @@ type Dashboard struct {
 }
 
 // Options provides options for a new Dashboard
-type Options func(cd *Dashboard)
+type Options func(d *Dashboard)
 
 // NewDashboard creates a custom dashboard
 func NewDashboard(opts ...Options) (*Dashboard, error) {
 	var err error
 
-	var cd = &Dashboard{}
+	var d = &Dashboard{}
 	for _, opt := range opts {
-		opt(cd)
+		opt(d)
 	}
 
 	// init EPD
-	cd.EPDService, err = epd.NewRaspberryPiHat()
-	if err != nil {
-		return nil, err
-	}
+	if d.Device != "" {
 
-	if cd.Device != "epd7in5v2" {
-		return nil, fmt.Errorf("Device %s is not supported", cd.Device)
+		if d.Device != "epd7in5v2" {
+			return nil, fmt.Errorf("Device %s is not supported", d.Device)
+		}
+
+		d.EPDService, err = epd.NewRaspberryPiHat()
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	// init TaskWarrior
-	if cd.taskWarriorOptions != nil {
-		cd.taskWarriorService, err = taskwarrior.NewTaskWarrior(cd.taskWarriorOptions.ConfigPath)
+	if d.taskWarriorOptions != nil {
+		d.taskWarriorService, err = taskwarrior.NewTaskWarrior(d.taskWarriorOptions.ConfigPath)
 		if err != nil {
 			return nil, fmt.Errorf("could not initialize task warrior: %s", err)
 		}
 	}
 
 	// init weatherAPI
-	if cd.weatherAPIOptions != nil {
-		cd.weatherAPIService, err = owm.NewCurrent(cd.weatherAPIOptions.WeatherTempUnit, cd.weatherAPIOptions.WeatherLanguage, cd.weatherAPIOptions.WeatherAPIKey)
+	if d.weatherAPIOptions != nil {
+		d.weatherAPIService, err = owm.NewCurrent(d.weatherAPIOptions.WeatherTempUnit, d.weatherAPIOptions.WeatherLanguage, d.weatherAPIOptions.WeatherAPIKey)
 		if err != nil {
 			return nil, fmt.Errorf("could not initialize task warrior: %s", err)
 		}
 	}
 
-	return cd, nil
+	return d, nil
 
 }
 
 // Generate a custom dashboard
-func (cd *Dashboard) Generate(outputFile string) error {
+func (d *Dashboard) Generate(outputFile string) error {
 	var (
 		xWidth, xHeight = float64(epdWidth), float64(epdHeight)
 		err             error
@@ -100,8 +103,8 @@ func (cd *Dashboard) Generate(outputFile string) error {
 	dc.DrawImage(cal, 0, 0)
 
 	// Draw the weather widget
-	if cd.weatherAPIOptions != nil {
-		cal, err = cd.buildWeatherWidget(256, 260)
+	if d.weatherAPIOptions != nil {
+		cal, err = d.buildWeatherWidget(256, 260)
 		if err != nil {
 			return fmt.Errorf("could not build weather widget: %s", err)
 		}
@@ -119,11 +122,11 @@ func (cd *Dashboard) Generate(outputFile string) error {
 	dc.DrawStringAnchored("TODOs", 276, 35, 0, .5)
 
 	// Draw TaskWarrior
-	if cd.taskWarriorService != nil {
+	if d.taskWarriorService != nil {
 		setFont(dc, 22)
 		dc.SetRGB(0, 0, 0)
 		var yPosition float64 = 64
-		for _, task := range cd.getTaskWarriorTasks() {
+		for _, task := range d.getTaskWarriorTasks() {
 			yPosition = yPosition + 32
 			dc.DrawStringAnchored(task, 276, yPosition, 0, .5)
 
@@ -141,7 +144,7 @@ func (cd *Dashboard) Generate(outputFile string) error {
 }
 
 // DisplayImage accepts a path to image file and displays it on the screen
-func (cd *Dashboard) DisplayImage(filePath string) error {
+func (d *Dashboard) DisplayImage(filePath string) error {
 
 	// If this is a URL, let's download it
 	if isValidURL(filePath) {
@@ -158,22 +161,22 @@ func (cd *Dashboard) DisplayImage(filePath string) error {
 		filePath = tmpfile.Name()
 	}
 
-	img, err := cd.getImageFromFilePath(filePath)
+	img, err := d.getImageFromFilePath(filePath)
 
 	if err != nil {
 		return err
 	}
 
-	buf := cd.convertImage(img)
-	cd.EPDService.Display(buf)
+	buf := d.convertImage(img)
+	d.EPDService.Display(buf)
 	return nil
 }
 
 // DisplayText accepts a string text and displays it on the screen
-func (cd *Dashboard) DisplayText(text string) error {
+func (d *Dashboard) DisplayText(text string) error {
 
 	// Create new logo context
-	dc := gg.NewContext(cd.EPDService.Width, cd.EPDService.Height)
+	dc := gg.NewContext(d.EPDService.Width, d.EPDService.Height)
 
 	// Set Background Color
 	dc.SetRGB(1, 1, 1)
@@ -186,7 +189,7 @@ func (cd *Dashboard) DisplayText(text string) error {
 	dc.SetRGB(0, 0, 0)
 
 	var (
-		maxWidth, maxHeight           float64 = float64(cd.EPDService.Width), float64(cd.EPDService.Height)
+		maxWidth, maxHeight           float64 = float64(d.EPDService.Width), float64(d.EPDService.Height)
 		fontSize                      float64 = 300  // initial font size
 		fontSizeReduction             float64 = 0.95 // reduce the font size by this much until message fits in the display
 		fontSizeMinimum               float64 = 10   // Smallest font size before giving up
@@ -220,14 +223,14 @@ func (cd *Dashboard) DisplayText(text string) error {
 	}
 
 	dc.DrawStringWrapped(text, 0, (maxHeight-measuredHeight)/2-(fontSize/4), 0, 0, maxWidth, lineSpacing, gg.AlignCenter)
-	buf := cd.convertImage(dc.Image())
+	buf := d.convertImage(dc.Image())
 
-	cd.EPDService.Display(buf)
+	d.EPDService.Display(buf)
 
 	return nil
 }
 
-func (cd *Dashboard) getImageFromFilePath(filePath string) (image.Image, error) {
+func (d *Dashboard) getImageFromFilePath(filePath string) (image.Image, error) {
 
 	img, err := imaging.Open(filePath, imaging.AutoOrientation(true))
 	if err != nil {
@@ -235,12 +238,12 @@ func (cd *Dashboard) getImageFromFilePath(filePath string) (image.Image, error) 
 	}
 
 	// Rotate if necessary
-	if img.Bounds().Max.X == cd.EPDService.Height && img.Bounds().Max.Y == cd.EPDService.Width {
+	if img.Bounds().Max.X == d.EPDService.Height && img.Bounds().Max.Y == d.EPDService.Width {
 		img = imaging.Rotate90(img)
 	}
 
 	// Resize the image to match current dimensions
-	img = imaging.Resize(img, cd.EPDService.Width, cd.EPDService.Height, imaging.Lanczos)
+	img = imaging.Resize(img, d.EPDService.Width, d.EPDService.Height, imaging.Lanczos)
 
 	// GreyScale the image
 	img = imaging.Grayscale(img)
@@ -251,14 +254,14 @@ func (cd *Dashboard) getImageFromFilePath(filePath string) (image.Image, error) 
 }
 
 // Convert converts the input image into a ready-to-display byte buffer.
-func (cd *Dashboard) convertImage(img image.Image) []byte {
+func (d *Dashboard) convertImage(img image.Image) []byte {
 	var byteToSend byte = 0x00
 	var bgColor = 1
 
-	buffer := bytes.Repeat([]byte{byteToSend}, (cd.EPDService.Width/8)*cd.EPDService.Height)
+	buffer := bytes.Repeat([]byte{byteToSend}, (d.EPDService.Width/8)*d.EPDService.Height)
 
-	for j := 0; j < cd.EPDService.Height; j++ {
-		for i := 0; i < cd.EPDService.Width; i++ {
+	for j := 0; j < d.EPDService.Height; j++ {
+		for i := 0; i < d.EPDService.Width; i++ {
 			bit := bgColor
 
 			if i < img.Bounds().Dx() && j < img.Bounds().Dy() {
@@ -270,7 +273,7 @@ func (cd *Dashboard) convertImage(img image.Image) []byte {
 			}
 
 			if i%8 == 7 {
-				buffer[(i/8)+(j*(cd.EPDService.Width/8))] = byteToSend
+				buffer[(i/8)+(j*(d.EPDService.Width/8))] = byteToSend
 				byteToSend = 0x00
 			}
 		}

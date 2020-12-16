@@ -9,15 +9,15 @@ type TaskWarriorOptions struct {
 
 // WithTaskWarrior creates a custom dashboard with Task Warrior configured
 func WithTaskWarrior(taskWarriorOptions *TaskWarriorOptions) Options {
-	return func(cd *Dashboard) {
-		cd.taskWarriorOptions = taskWarriorOptions
+	return func(d *Dashboard) {
+		d.taskWarriorOptions = taskWarriorOptions
 	}
 }
 
-func (cd *Dashboard) getTaskWarriorTasks() (ss []string) {
-	cd.taskWarriorService.FetchAllTasks()
+func (d *Dashboard) getTaskWarriorTasks() (ss []string) {
+	d.taskWarriorService.FetchAllTasks()
 
-	for i, t := range cd.taskWarriorService.Tasks {
+	for i, t := range d.taskWarriorService.Tasks {
 		if t.Status == "pending" {
 			ss = append(ss, fmt.Sprintf("%v) %s", i+1, t.Description))
 		}

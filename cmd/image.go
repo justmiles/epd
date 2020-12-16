@@ -29,22 +29,22 @@ var displayImageCmd = &cobra.Command{
 
 		displayImage := args[0]
 
-		cd, err := dashboard.NewDashboard(dashboard.WithEPD(device))
+		d, err := dashboard.NewDashboard(dashboard.WithEPD(device))
 		if err != nil {
 			errorOut(err.Error())
 		}
 
 		if initialize {
-			cd.EPDService.HardwareInit()
+			d.EPDService.HardwareInit()
 		}
 
-		err = cd.DisplayImage(displayImage)
+		err = d.DisplayImage(displayImage)
 		if err != nil {
 			errorOut(err.Error())
 		}
 
 		if sleep {
-			cd.EPDService.Sleep()
+			d.EPDService.Sleep()
 		}
 
 	},

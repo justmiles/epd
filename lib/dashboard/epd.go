@@ -7,7 +7,7 @@ type EPDOptions struct {
 
 // WithEPD creates a dashboard using these Electronic Paper Display options
 func WithEPD(device string) Options {
-	return func(cd *Dashboard) {
-		cd.Device = device
+	return func(d *Dashboard) {
+		d.Device = device
 	}
 }

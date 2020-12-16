@@ -24,11 +24,10 @@ func init() {
 
 var refreshDashboardCmd = &cobra.Command{
 	Use:   "refresh-dashboard",
-	Short: "",
+	Short: "Update your display with a custom dashboard",
 	Run: func(cmd *cobra.Command, args []string) {
 
-		dashboard, err := dashboard.NewDashboard(
-			dashboard.WithEPD(device),
+		d, err := dashboard.NewDashboard(
 			dashboard.WithTaskWarrior(&taskWarriorOptions),
 			dashboard.WithWeatherAPI(&weatherAPIOptions),
 		)
@@ -39,12 +38,20 @@ var refreshDashboardCmd = &cobra.Command{
 
 		const outputImage = "dashboard-image.png"
 
-		err = dashboard.Generate(outputImage)
+		err = d.Generate(outputImage)
 		if err != nil {
 			log.Fatal(err)
 		}
 
-		err = dashboard.DisplayImage(outputImage)
+		// re-init with just the EPD so that we can generate local images when not connected to the EPD locally
+		d, err = dashboard.NewDashboard(
+			dashboard.WithEPD(device),
+		)
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		err = d.DisplayImage(outputImage)
 		if err != nil {
 			log.Fatal(err)
 		}

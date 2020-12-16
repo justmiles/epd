@@ -22,22 +22,22 @@ var displayTextCmd = &cobra.Command{
 			errorOut("Please pass text to display")
 		}
 
-		cd, err := dashboard.NewDashboard(dashboard.WithEPD(device))
+		d, err := dashboard.NewDashboard(dashboard.WithEPD(device))
 		if err != nil {
 			errorOut(err.Error())
 		}
 
 		if initialize {
-			cd.EPDService.HardwareInit()
+			d.EPDService.HardwareInit()
 		}
 
-		err = cd.DisplayText(strings.Join(args, " "))
+		err = d.DisplayText(strings.Join(args, " "))
 		if err != nil {
 			panic(err)
 		}
 
 		if sleep {
-			cd.EPDService.Sleep()
+			d.EPDService.Sleep()
 		}
 
 	},
