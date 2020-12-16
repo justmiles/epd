@@ -15,7 +15,7 @@ Available Commands:
   display-image     Display an image on your EPD
   display-text      Display text on your EPD
   help              Help about any command
-  refresh-dashboard 
+  refresh-dashboard Update your display with a custom dashboard
 
 Flags:
       --debug           enable debug logging
