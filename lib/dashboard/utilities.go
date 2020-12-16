@@ -210,10 +210,10 @@ func downloadFile(fullURLFIle, localFilePath string) (err error) {
 
 	// Invoke HTTP request
 	resp, err := client.Get(fullURLFIle)
-	defer resp.Body.Close()
 	if err != nil {
 		return fmt.Errorf("Error downloading logo:\n %s", err)
 	}
+	defer resp.Body.Close()
 
 	// Pipe data to disk
 	_, err = io.Copy(file, resp.Body)
