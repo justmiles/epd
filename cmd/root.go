@@ -16,7 +16,7 @@ var (
 func init() {
 	log.SetFlags(0)
 	rootCmd.PersistentFlags().BoolVar(&debug, "debug", false, "enable debug logging")
-	rootCmd.PersistentFlags().StringVarP(&device, "device", "d", "epd7in5v2", "select device type")
+	rootCmd.PersistentFlags().StringVarP(&device, "device", "d", "epd7in5v2", "your supported EPD device type (eh, I only have epd7in5v2 right now.)")
 	rootCmd.PersistentFlags().BoolVarP(&initialize, "initialize", "i", false, "initialize (wake) the device before updating it. Required if in sleep mode")
 	rootCmd.PersistentFlags().BoolVarP(&sleep, "sleep", "s", false, "set the device to sleep mode after updating display")
 }
@@ -26,7 +26,7 @@ var rootCmd = &cobra.Command{
 	Use:   "epd",
 	Short: "Interact with a supported Electronic Paper Display",
 	Run: func(rootCmd *cobra.Command, args []string) {
-		// TODO display help
+		// TODO display halp
 	},
 }
 
