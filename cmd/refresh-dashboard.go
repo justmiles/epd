@@ -47,6 +47,11 @@ var refreshDashboardCmd = &cobra.Command{
 		d, err = dashboard.NewDashboard(
 			dashboard.WithEPD(device),
 		)
+
+		if initialize {
+			d.EPDService.HardwareInit()
+		}
+
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -54,6 +59,10 @@ var refreshDashboardCmd = &cobra.Command{
 		err = d.DisplayImage(outputImage)
 		if err != nil {
 			log.Fatal(err)
+		}
+
+		if sleep {
+			d.EPDService.Sleep()
 		}
 
 	},

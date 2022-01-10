@@ -7,7 +7,7 @@ require (
 	github.com/disintegration/imaging v1.6.2
 	github.com/fogleman/gg v1.3.0
 	github.com/golang/freetype v0.0.0-20170609003504-e2365dfdc4a0
-	github.com/jubnzv/go-taskwarrior v0.0.0-20181106060348-22add0258468
+	github.com/jubnzv/go-taskwarrior v0.0.0-20220111032313-0ea4f466b47c
 	github.com/spf13/cobra v0.0.5
 	github.com/srwiley/oksvg v0.0.0-20200311192757-870daf9aa564
 	github.com/srwiley/rasterx v0.0.0-20200120212402-85cb7272f5e9
