@@ -39,12 +39,18 @@ func convertSVGToImage(stream io.Reader, width, height float64) image.Image {
 }
 
 // buildCalendarWidget x pixels wide and y pixels tall
-func buildCalendarWidget(x, y int) (image.Image, error) {
+func buildCalendarWidget(x, y int, location string) (image.Image, error) {
+
+	//init the loc
+	loc, err := time.LoadLocation("America/New_York")
+	if err != nil {
+		return nil, fmt.Errorf("Invalid location: %s", err)
+	}
 
 	var (
 		xWidth, xHeight          = float64(x), float64(y)
 		fontSize, widgetLocation float64
-		now                      = time.Now()
+		now                      = time.Now().In(loc)
 	)
 
 	// Draw background
