@@ -10,6 +10,7 @@ import (
 var (
 	taskWarriorOptions dashboard.TaskWarriorOptions
 	weatherAPIOptions  dashboard.WeatherAPIOptions
+	location           string
 )
 
 func init() {
@@ -19,6 +20,7 @@ func init() {
 	refreshDashboardCmd.PersistentFlags().StringVar(&weatherAPIOptions.WeatherLanguage, "weather-language", "EN", "langage for weather")
 	refreshDashboardCmd.PersistentFlags().StringVar(&weatherAPIOptions.WeatherTempUnit, "weather-temp-unit", "F", "temperature unit for weather")
 	refreshDashboardCmd.PersistentFlags().StringVar(&weatherAPIOptions.WeatherCountry, "weather-country", "US", "temperature unit for weather")
+	refreshDashboardCmd.PersistentFlags().StringVar(&location, "location", "America/New_York", "location for date")
 	refreshDashboardCmd.PersistentFlags().IntVar(&weatherAPIOptions.WeatherZipCode, "weather-zip", 37069, "zip code for weather")
 }
 

@@ -37,6 +37,9 @@ type Dashboard struct {
 	// TaskWarrior
 	taskWarriorOptions *TaskWarriorOptions
 	taskWarriorService *taskwarrior.TaskWarrior
+
+	// Calendar Location
+	location string
 }
 
 // Options provides options for a new Dashboard
@@ -99,7 +102,7 @@ func (d *Dashboard) Generate(outputFile string) error {
 	dc.Fill()
 
 	// Draw the calendar widget
-	cal, _ := buildCalendarWidget(256, 220)
+	cal, _ := buildCalendarWidget(256, 220, d.location)
 	dc.DrawImage(cal, 0, 0)
 
 	// Draw the weather widget
