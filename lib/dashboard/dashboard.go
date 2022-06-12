@@ -33,6 +33,7 @@ type Dashboard struct {
 	// WeatherAPI
 	weatherAPIOptions *WeatherAPIOptions
 	weatherAPIService *openweathermap.CurrentWeatherData
+	weatherAPIOneCall *openweathermap.OneCallData
 
 	// TaskWarrior
 	taskWarriorOptions *TaskWarriorOptions
@@ -78,6 +79,7 @@ func NewDashboard(opts ...Options) (*Dashboard, error) {
 	// init weatherAPI
 	if d.weatherAPIOptions != nil {
 		d.weatherAPIService, err = owm.NewCurrent(d.weatherAPIOptions.WeatherTempUnit, d.weatherAPIOptions.WeatherLanguage, d.weatherAPIOptions.WeatherAPIKey)
+		d.weatherAPIOneCall, err = owm.NewOneCall(d.weatherAPIOptions.WeatherTempUnit, d.weatherAPIOptions.WeatherLanguage, d.weatherAPIOptions.WeatherAPIKey, []string{})
 		if err != nil {
 			return nil, fmt.Errorf("could not initialize task warrior: %s", err)
 		}

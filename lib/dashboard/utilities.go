@@ -41,8 +41,12 @@ func convertSVGToImage(stream io.Reader, width, height float64) image.Image {
 // buildCalendarWidget x pixels wide and y pixels tall
 func buildCalendarWidget(x, y int, location string) (image.Image, error) {
 
+	if location == "" {
+		location = "America/New_York"
+	}
+
 	//init the loc
-	loc, err := time.LoadLocation("America/New_York")
+	loc, err := time.LoadLocation(location)
 	if err != nil {
 		return nil, fmt.Errorf("Invalid location: %s", err)
 	}

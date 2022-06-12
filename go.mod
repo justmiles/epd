@@ -3,7 +3,7 @@ module github.com/justmiles/epd
 go 1.12
 
 require (
-	github.com/briandowns/openweathermap v0.16.0
+	github.com/briandowns/openweathermap v0.18.0
 	github.com/disintegration/imaging v1.6.2
 	github.com/fogleman/gg v1.3.0
 	github.com/golang/freetype v0.0.0-20170609003504-e2365dfdc4a0
