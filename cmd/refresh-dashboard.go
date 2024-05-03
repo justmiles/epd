@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"fmt"
 	"log"
 
 	dashboard "github.com/justmiles/epd/lib/dashboard"
@@ -22,6 +23,7 @@ func init() {
 	refreshDashboardCmd.PersistentFlags().StringVar(&weatherAPIOptions.WeatherCountry, "weather-country", "US", "temperature unit for weather")
 	refreshDashboardCmd.PersistentFlags().StringVar(&location, "location", "America/New_York", "location for date")
 	refreshDashboardCmd.PersistentFlags().IntVar(&weatherAPIOptions.WeatherZipCode, "weather-zip", 37069, "zip code for weather")
+	refreshDashboardCmd.PersistentFlags().BoolVar(&previewImage, "preview", false, "preview the dashboard instead of updating the display")
 }
 
 var refreshDashboardCmd = &cobra.Command{
@@ -45,12 +47,20 @@ var refreshDashboardCmd = &cobra.Command{
 			log.Fatal(err)
 		}
 
+		if previewImage {
+			return
+		}
 		// re-init with just the EPD so that we can generate local images when not connected to the EPD locally
 		d, err = dashboard.NewDashboard(
 			dashboard.WithEPD(device),
 		)
 
 		if initialize {
+			defer func() {
+				if r := recover(); r != nil {
+					fmt.Println("unable to connect to EPD")
+				}
+			}()
 			d.EPDService.HardwareInit()
 		}
 
