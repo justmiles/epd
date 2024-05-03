@@ -11,11 +11,14 @@ import (
 var (
 	taskWarriorOptions dashboard.TaskWarriorOptions
 	weatherAPIOptions  dashboard.WeatherAPIOptions
+	dstaskOptions      dashboard.DstaskOptions
 	location           string
 )
 
 func init() {
 	rootCmd.AddCommand(refreshDashboardCmd)
+	refreshDashboardCmd.PersistentFlags().BoolVar(&dstaskOptions.Enable, "dstask", false, "enable dstask")
+	refreshDashboardCmd.PersistentFlags().BoolVar(&taskWarriorOptions.Enable, "taskwarrior", false, "enable taskwarrior")
 	refreshDashboardCmd.PersistentFlags().StringVar(&taskWarriorOptions.ConfigPath, "taskwarrior-path", "", "path to your taskwarrior config")
 	refreshDashboardCmd.PersistentFlags().StringVar(&weatherAPIOptions.WeatherAPIKey, "weather-api-key", "", "your openweathermap.org API key")
 	refreshDashboardCmd.PersistentFlags().StringVar(&weatherAPIOptions.WeatherLanguage, "weather-language", "EN", "langage for weather")
@@ -34,6 +37,7 @@ var refreshDashboardCmd = &cobra.Command{
 		d, err := dashboard.NewDashboard(
 			dashboard.WithTaskWarrior(&taskWarriorOptions),
 			dashboard.WithWeatherAPI(&weatherAPIOptions),
+			dashboard.WithDstask(&dstaskOptions),
 		)
 
 		if err != nil {

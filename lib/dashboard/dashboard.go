@@ -38,6 +38,9 @@ type Dashboard struct {
 	taskWarriorOptions *TaskWarriorOptions
 	taskWarriorService *taskwarrior.TaskWarrior
 
+	// dstask
+	dstaskOptions *DstaskOptions
+
 	// Calendar Location
 	location string
 }
@@ -125,11 +128,28 @@ func (d *Dashboard) Generate(outputFile string) error {
 	dc.DrawStringAnchored("TODOs", 276, 35, 0, .5)
 
 	// Draw TaskWarrior
-	if d.taskWarriorService != nil {
+	if d.taskWarriorOptions.Enable {
 		setFont(dc, 22)
 		dc.SetRGB(0, 0, 0)
 		var yPosition float64 = 64
 		for _, task := range d.getTaskWarriorTasks() {
+			yPosition = yPosition + 32
+			dc.DrawStringAnchored(task, 276, yPosition, 0, .5)
+
+			dc.DrawRectangle(266, yPosition+16, 524, 2)
+			dc.Fill()
+
+			dc.DrawRectangle(266, yPosition, 2, 16)
+			dc.Fill()
+		}
+	}
+
+	// Draw Dstasks
+	if d.dstaskOptions.Enable {
+		setFont(dc, 22)
+		dc.SetRGB(0, 0, 0)
+		var yPosition float64 = 64
+		for _, task := range d.getDstaskTasks() {
 			yPosition = yPosition + 32
 			dc.DrawStringAnchored(task, 276, yPosition, 0, .5)
 

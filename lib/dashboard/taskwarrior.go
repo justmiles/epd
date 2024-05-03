@@ -9,6 +9,7 @@ import (
 
 // TaskWarriorOptions defines options for TaskWarrior
 type TaskWarriorOptions struct {
+	Enable     bool
 	ConfigPath string
 }
 

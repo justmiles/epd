@@ -32,6 +32,12 @@ Use "epd [command] --help" for more information about a command.
 
 You'll need to grab an [openweathermap](https://openweathermap.org/) API key and setup TaskWarrior. Once this in is place, you can use the `epd refresh-dashboard` command to display a generic dashboard. I schedule this in cron on my raspberry PI to update every 30 minutes.
 
+example:
+
+```bash
+epd refresh-dashboard --dstask --weather-api-key XXXXXXXXXXXX
+```
+
 ![dashboard-image](https://justmiles.keybase.pub/assets/github.com/justmiles/epd/dashboard-image.png)
 
 ## Supported Displays
