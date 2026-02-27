@@ -19,14 +19,15 @@ type renderer struct {
 	source []byte
 
 	// Style state (stack-based for nesting).
-	bold        int
-	italic      int
-	codeInline  int
-	heading     int
-	listDepth   int
-	listIndex   []int // current item index per list depth (for ordered lists)
-	blockquote  int
-	inCodeBlock bool
+	bold          int
+	italic        int
+	codeInline    int
+	strikethrough int
+	heading       int
+	listDepth     int
+	listIndex     []int // current item index per list depth (for ordered lists)
+	blockquote    int
+	inCodeBlock   bool
 
 	// Layout state.
 	y          float64 // current Y position
@@ -121,6 +122,7 @@ func (r *renderer) resetStyle() {
 	r.bold = 0
 	r.italic = 0
 	r.codeInline = 0
+	r.strikethrough = 0
 	r.heading = 0
 	r.listDepth = 0
 	r.listIndex = nil
@@ -511,10 +513,11 @@ func (r *renderer) renderInlineChildrenAt(node ast.Node, dc *gg.Context, xStart,
 
 	// Build styled words: each word carries its own style.
 	type styledWord struct {
-		text   string
-		bold   bool
-		italic bool
-		code   bool
+		text          string
+		bold          bool
+		italic        bool
+		code          bool
+		strikethrough bool
 	}
 
 	var words []styledWord
@@ -522,10 +525,11 @@ func (r *renderer) renderInlineChildrenAt(node ast.Node, dc *gg.Context, xStart,
 		segWords := strings.Fields(seg.text)
 		for _, w := range segWords {
 			words = append(words, styledWord{
-				text:   w,
-				bold:   seg.bold,
-				italic: seg.italic,
-				code:   seg.code,
+				text:          w,
+				bold:          seg.bold,
+				italic:        seg.italic,
+				code:          seg.code,
+				strikethrough: seg.strikethrough,
 			})
 		}
 	}
@@ -539,7 +543,13 @@ func (r *renderer) renderInlineChildrenAt(node ast.Node, dc *gg.Context, xStart,
 
 	for i, word := range words {
 		// Load the appropriate font for this word.
+		if word.code {
+			r.codeInline++
+		}
 		r.loadFont(dc, word.bold, word.italic)
+		if word.code {
+			r.codeInline--
+		}
 
 		wordW, _ := dc.MeasureString(word.text)
 		spaceW, _ := dc.MeasureString(" ")
@@ -556,8 +566,20 @@ func (r *renderer) renderInlineChildrenAt(node ast.Node, dc *gg.Context, xStart,
 		}
 
 		if !measureOnly {
-			dc.SetColor(r.textColor())
+			if word.strikethrough {
+				dc.SetColor(r.mutedColor())
+			} else {
+				dc.SetColor(r.textColor())
+			}
 			dc.DrawString(word.text, curX, r.y+r.fontSize())
+
+			// Draw strikethrough line.
+			if word.strikethrough {
+				lineY := r.y + r.fontSize()*0.65
+				dc.SetLineWidth(1)
+				dc.DrawLine(curX, lineY, curX+wordW, lineY)
+				dc.Stroke()
+			}
 		}
 		curX += wordW
 	}
@@ -570,11 +592,12 @@ func (r *renderer) renderInlineChildrenAt(node ast.Node, dc *gg.Context, xStart,
 }
 
 type inlineSegment struct {
-	text   string
-	bold   bool
-	italic bool
-	code   bool
-	link   string
+	text          string
+	bold          bool
+	italic        bool
+	code          bool
+	strikethrough bool
+	link          string
 }
 
 // collectInlineSegments walks inline children to gather styled text segments.
@@ -593,22 +616,25 @@ func (r *renderer) walkInline(node ast.Node, segments *[]inlineSegment) {
 				text += " "
 			}
 			*segments = append(*segments, inlineSegment{
-				text:   text,
-				bold:   r.bold > 0,
-				italic: r.italic > 0,
-				code:   r.codeInline > 0,
+				text:          text,
+				bold:          r.bold > 0,
+				italic:        r.italic > 0,
+				code:          r.codeInline > 0,
+				strikethrough: r.strikethrough > 0,
 			})
 
 		case *ast.String:
 			*segments = append(*segments, inlineSegment{
-				text: string(n.Value),
+				text:          string(n.Value),
+				strikethrough: r.strikethrough > 0,
 			})
 
 		case *ast.CodeSpan:
 			code := r.collectText(n)
 			*segments = append(*segments, inlineSegment{
-				text: code,
-				code: true,
+				text:          code,
+				code:          true,
+				strikethrough: r.strikethrough > 0,
 			})
 
 		case *ast.Emphasis:
@@ -621,6 +647,14 @@ func (r *renderer) walkInline(node ast.Node, segments *[]inlineSegment) {
 				r.walkInline(n, segments)
 				r.italic--
 			}
+
+		case *east.Strikethrough:
+			r.strikethrough++
+			r.walkInline(n, segments)
+			r.strikethrough--
+
+		case *east.TaskCheckBox:
+			// Skip — rendered as ☑/☐ by list item code.
 
 		case *ast.Link:
 			linkText := r.collectText(n)

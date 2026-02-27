@@ -126,7 +126,7 @@ func (d *Dashboard) Generate(outputFile string, headerText string, bodyText stri
 
 	// Draw the weather widget
 	weatherWidgetWidth := int(xWidth * .32)
-	weatherWidgetHeight := int(xHeight * .54)
+	weatherWidgetHeight := int(xHeight) - calendarWidgetHeight
 	if d.weatherAPIOptions != nil {
 		cal, err = d.buildWeatherWidget(weatherWidgetWidth, weatherWidgetHeight)
 		if err != nil {
