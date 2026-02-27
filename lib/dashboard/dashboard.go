@@ -121,18 +121,25 @@ func (d *Dashboard) Generate(outputFile string, headerText string, bodyText stri
 	// Draw the calendar widget
 	calendarWidgetWidth := int(xWidth * .32)
 	calendarWidgetHeight := int(xHeight * .45)
-	cal, _ := buildCalendarWidget(calendarWidgetWidth, calendarWidgetHeight, d.location)
-	dc.DrawImage(cal, 0, 0)
+	cal, err := buildCalendarWidget(calendarWidgetWidth, calendarWidgetHeight, d.location)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "warning: could not build calendar widget: %s\n", err)
+	}
+	if cal != nil {
+		dc.DrawImage(cal, 0, 0)
+	}
 
 	// Draw the weather widget
 	weatherWidgetWidth := int(xWidth * .32)
 	weatherWidgetHeight := int(xHeight) - calendarWidgetHeight
 	if d.weatherAPIOptions != nil {
-		cal, err = d.buildWeatherWidget(weatherWidgetWidth, weatherWidgetHeight)
+		weatherImg, err := d.buildWeatherWidget(weatherWidgetWidth, weatherWidgetHeight)
 		if err != nil {
 			return fmt.Errorf("could not build weather widget: %s", err)
 		}
-		dc.DrawImage(cal, 0, calendarWidgetHeight)
+		if weatherImg != nil {
+			dc.DrawImage(weatherImg, 0, calendarWidgetHeight)
+		}
 	}
 
 	// Draw the dashboard header background
