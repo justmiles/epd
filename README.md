@@ -55,21 +55,24 @@ When `--device` contains a `host:port` (e.g. `pi.local:50051`), commands automat
 
 ## Generate a dashboard
 
-You'll need to grab an [openweathermap](https://openweathermap.org/) API key and setup TaskWarrior. Once this in is place, you can use the `epd refresh-dashboard` command to display a generic dashboard. I schedule this in cron on my raspberry PI to update every 30 minutes.
-
-example:
+Use the `epd refresh-dashboard` command to display a dashboard with a custom header and body content. The body supports GitHub Flavored Markdown (tables, task lists, bold, italic, strikethrough, etc.) and can accept either inline text or a path to a `.md` file.
 
 ```bash
-epd refresh-dashboard --dstask --weather-api-key XXXXXXXXXXXX
+# Display a dashboard with custom header and body text
+epd refresh-dashboard --header-text "My Dashboard" --body-text "Hello, world!"
+
+# Display a dashboard with a markdown file as the body
+epd refresh-dashboard --header-text "TODOs" --body-text TODOs.md
 ```
 
 You can also generate the dashboard locally and push it to a remote display:
 
 ```bash
-epd refresh-dashboard --dstask --weather-api-key XXXXXXXXXXXX --device pi.local:50051
+epd refresh-dashboard --header-text "TODOs" --body-text TODOs.md --device pi.local:50051
 ```
 
-![dashboard-image](https://justmiles.keybase.pub/assets/github.com/justmiles/epd/dashboard-image.png)
+These values can also be set via environment variables `EPD_HEADER_TEXT` and `EPD_BODY_TEXT`.
+
 
 ## Supported Displays
 
