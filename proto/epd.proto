@@ -1,0 +1,47 @@
+syntax = "proto3";
+
+package epd;
+
+option go_package = "github.com/justmiles/epd/proto/epdpb";
+
+service EPDService {
+  // DisplayImage accepts PNG image data and displays it on the EPD
+  rpc DisplayImage(DisplayImageRequest) returns (DisplayImageResponse);
+
+  // DisplayText renders text and displays it on the EPD
+  rpc DisplayText(DisplayTextRequest) returns (DisplayTextResponse);
+
+  // Clear clears the EPD to white
+  rpc Clear(ClearRequest) returns (ClearResponse);
+
+  // Sleep puts the EPD into sleep mode
+  rpc Sleep(SleepRequest) returns (SleepResponse);
+}
+
+message DisplayImageRequest {
+  bytes image_data = 1; // PNG encoded image data
+}
+
+message DisplayImageResponse {
+  string message = 1;
+}
+
+message DisplayTextRequest {
+  string text = 1;
+}
+
+message DisplayTextResponse {
+  string message = 1;
+}
+
+message ClearRequest {}
+
+message ClearResponse {
+  string message = 1;
+}
+
+message SleepRequest {}
+
+message SleepResponse {
+  string message = 1;
+}

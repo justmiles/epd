@@ -2,3 +2,6 @@ epd
 dashboard-image.png
 
 dist/
+.envrc
+*.jpg
+TODOs.md

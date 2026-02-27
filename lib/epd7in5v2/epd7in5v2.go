@@ -4,7 +4,6 @@ package epd7in5v2
 
 import (
 	"fmt"
-	"os"
 	"time"
 
 	rpio "github.com/stianeikeland/go-rpio/v4"
@@ -211,24 +210,12 @@ func (epd EPD) HardwareInit() {
 	epd.SendData(b2WLut)
 }
 
-// ReadBusy reads
+// ReadBusy waits until the EPD is no longer busy, with a 60 second timeout.
 func (epd EPD) ReadBusy() {
-
-	// Setup Timeout
-	ch := make(chan bool, 1)
-	timeout := make(chan bool, 1)
-	defer close(ch)
-	defer close(timeout)
-
-	// Timeout function
-	go func() {
-		time.Sleep(60 * time.Second)
-		timeout <- true
-	}()
+	done := make(chan struct{})
 
 	// Wait for busy
 	go func() {
-
 		epd.SendCommand(getStatus)
 		for digitalRead(epd.busyPin) == rpio.Low {
 			debug("epd -> ReadBusy")
@@ -236,16 +223,17 @@ func (epd EPD) ReadBusy() {
 			delayMS(200)
 		}
 
-		ch <- true
+		select {
+		case done <- struct{}{}:
+		default:
+		}
 	}()
 
 	select {
-	case <-ch:
+	case <-done:
 		return
-	case <-timeout:
-		// TODO: consider initing the device after timeout
-		fmt.Println("Timeout waiting for EPD busy status. Did you inititalize (wake) the device?")
-		os.Exit(2)
+	case <-time.After(60 * time.Second):
+		fmt.Println("Timeout waiting for EPD busy status. Did you initialize (wake) the device?")
 	}
 }
 

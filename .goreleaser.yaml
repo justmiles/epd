@@ -1,10 +1,8 @@
-version: 1
+version: 2
 
 before:
   hooks:
-    # You may remove this if you don't use go modules.
     - go mod tidy
-    # you may remove this if you don't need go generate
     - go generate ./...
 
 builds:
@@ -25,8 +23,8 @@ builds:
       - 6
 
 archives:
-  - format: tar.gz
-    # this name template makes the OS and Arch compatible with the results of `uname`.
+  - formats:
+      - tar.gz
     name_template: >-
       {{ .ProjectName }}
       {{- title .Os }}_
@@ -34,6 +32,29 @@ archives:
       {{- else if eq .Arch "386" }}i386
       {{- else }}{{ .Arch }}{{ end }}
       {{- if .Arm }}v{{ .Arm }}{{ end }}
+
+nfpms:
+  - id: epd-deb
+    package_name: epd
+    ids:
+      - pi
+    formats:
+      - deb
+    vendor: justmiles
+    homepage: https://github.com/justmiles/epd
+    maintainer: justmiles
+    description: Electronic Paper Display daemon with gRPC interface
+    license: MIT
+    contents:
+      - src: packaging/epd.service
+        dst: /etc/systemd/system/epd.service
+        type: config
+      - src: packaging/epd.env
+        dst: /etc/default/epd
+        type: config|noreplace
+    scripts:
+      postinstall: packaging/postinstall.sh
+      preremove: packaging/preremove.sh
 
 changelog:
   sort: asc

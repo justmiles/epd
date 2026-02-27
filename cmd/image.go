@@ -1,9 +1,11 @@
 package cmd
 
 import (
+	"fmt"
 	"log"
+	"os"
 
-	"github.com/justmiles/epd/lib/dashboard"
+	"github.com/justmiles/epd/lib/display"
 	"github.com/spf13/cobra"
 )
 
@@ -27,25 +29,34 @@ var displayImageCmd = &cobra.Command{
 			errorOut("Please pass an image to display")
 		}
 
-		displayImage := args[0]
+		imagePath := args[0]
 
-		d, err := dashboard.NewDashboard(dashboard.WithEPD(device))
+		svc, err := newDisplayService(device, initialize)
 		if err != nil {
-			errorOut(err.Error())
+			fmt.Println(err)
+			os.Exit(1)
 		}
+		defer svc.Close()
 
-		if initialize {
-			d.EPDService.HardwareInit()
-		}
-
-		err = d.DisplayImage(displayImage)
-		if err != nil {
-			errorOut(err.Error())
+		// For remote display, read and encode the image locally then send PNG bytes
+		if display.IsRemote(device) {
+			pngData, err := display.ReadImageFile(imagePath, 800, 480)
+			if err != nil {
+				errorOut(err.Error())
+			}
+			if err := svc.DisplayImage(pngData); err != nil {
+				errorOut(err.Error())
+			}
+		} else {
+			// For local display, use the direct file path method
+			local := svc.(*display.LocalDisplay)
+			if err := local.DisplayImageFromFile(imagePath); err != nil {
+				errorOut(err.Error())
+			}
 		}
 
 		if sleep {
-			d.EPDService.Sleep()
+			svc.Sleep()
 		}
-
 	},
 }

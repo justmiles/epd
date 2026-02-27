@@ -1,10 +1,11 @@
 package cmd
 
 import (
+	"fmt"
 	"log"
+	"os"
 	"strings"
 
-	"github.com/justmiles/epd/lib/dashboard"
 	"github.com/spf13/cobra"
 )
 
@@ -22,23 +23,19 @@ var displayTextCmd = &cobra.Command{
 			errorOut("Please pass text to display")
 		}
 
-		d, err := dashboard.NewDashboard(dashboard.WithEPD(device))
+		svc, err := newDisplayService(device, initialize)
 		if err != nil {
+			fmt.Println(err)
+			os.Exit(1)
+		}
+		defer svc.Close()
+
+		if err := svc.DisplayText(strings.Join(args, " ")); err != nil {
 			errorOut(err.Error())
 		}
 
-		if initialize {
-			d.EPDService.HardwareInit()
-		}
-
-		err = d.DisplayText(strings.Join(args, " "))
-		if err != nil {
-			panic(err)
-		}
-
 		if sleep {
-			d.EPDService.Sleep()
+			svc.Sleep()
 		}
-
 	},
 }

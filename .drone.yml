@@ -1,0 +1,18 @@
+kind: pipeline
+type: docker
+name: release
+
+trigger:
+  event:
+    - tag
+  ref:
+    - refs/tags/v*
+
+steps:
+  - name: release
+    image: goreleaser/goreleaser
+    environment:
+      GITHUB_TOKEN:
+        from_secret: github_token
+    commands:
+      - goreleaser release --clean

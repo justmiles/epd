@@ -1,0 +1,13 @@
+[Unit]
+Description=Electronic Paper Display (EPD) gRPC Daemon
+After=network.target
+
+[Service]
+Type=simple
+EnvironmentFile=/etc/default/epd
+ExecStart=/usr/bin/epd serve --device ${EPD_DEVICE} --port ${EPD_PORT}
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"image"
 	"image/color"
-	"io/ioutil"
+	"image/png"
 	"os"
 	"strings"
 
@@ -14,8 +14,8 @@ import (
 	"github.com/disintegration/imaging"
 	"github.com/fogleman/gg"
 	"github.com/golang/freetype/truetype"
-	"github.com/jubnzv/go-taskwarrior"
 	epd "github.com/justmiles/epd/lib/epd7in5v2"
+	mdpng "github.com/justmiles/epd/lib/md-png"
 	"golang.org/x/image/font/gofont/goregular"
 )
 
@@ -33,13 +33,6 @@ type Dashboard struct {
 	// WeatherAPI
 	weatherAPIOptions *WeatherAPIOptions
 	weatherAPIService *openweathermap.CurrentWeatherData
-
-	// TaskWarrior
-	taskWarriorOptions *TaskWarriorOptions
-	taskWarriorService *taskwarrior.TaskWarrior
-
-	// dstask
-	dstaskOptions *DstaskOptions
 
 	// Calendar Location
 	location string
@@ -70,19 +63,11 @@ func NewDashboard(opts ...Options) (*Dashboard, error) {
 		}
 	}
 
-	// init TaskWarrior
-	if d.taskWarriorOptions != nil {
-		d.taskWarriorService, err = taskwarrior.NewTaskWarrior(d.taskWarriorOptions.ConfigPath)
-		if err != nil {
-			return nil, fmt.Errorf("could not initialize task warrior: %s", err)
-		}
-	}
-
 	// init weatherAPI
 	if d.weatherAPIOptions != nil {
 		d.weatherAPIService, err = owm.NewCurrent(d.weatherAPIOptions.WeatherTempUnit, d.weatherAPIOptions.WeatherLanguage, d.weatherAPIOptions.WeatherAPIKey)
 		if err != nil {
-			return nil, fmt.Errorf("could not initialize task warrior: %s", err)
+			return nil, fmt.Errorf("could not initialize weather api: %s", err)
 		}
 	}
 
@@ -90,13 +75,42 @@ func NewDashboard(opts ...Options) (*Dashboard, error) {
 
 }
 
-// Generate a custom dashboard
-func (d *Dashboard) Generate(outputFile string) error {
+// ┌──────────────────────────────────────────────────────────────────────────────────────────────────────┐
+// │┌────────────────────────────┐┌──────────────────────────────────────────────────────────────────────┐│
+// ││                            ││                                                                      ││
+// ││        <day of week>       ││  <HEADER>                                                            ││
+// ││                            ││                                                                      ││
+// ││       <Day  of Month>      │└──────────────────────────────────────────────────────────────────────┘│
+// ││                            ││ <BODY>                                                               ││
+// ││                            ││                                                                      ││
+// ││    <Month>        <Year>   ││                                                                      ││
+// ││ ────────────────────────── ││                                                                      ││
+// ││                            ││                                                                      ││
+// ││                 <WEATHER>  ││                                                                      ││
+// ││ <WEATHER>                  ││                                                                      ││
+// ││  <ICON>           <TEMP>   ││                                                                      ││
+// ││                            ││                                                                      ││
+// ││                            ││                                                                      ││
+// ││                            ││                                                                      ││
+// ││                            ││                                                                      ││
+// ││                            ││                                                                      ││
+// ││                            ││                                                                      ││
+// ││                            ││                                                                      ││
+// ││                            ││                                                                      ││
+// ││                            ││                                                                      ││
+// ││                            ││                                                                      ││
+// ││                            ││                                                                      ││
+// ││                            ││                                                                      ││
+// │└────────────────────────────┘└──────────────────────────────────────────────────────────────────────┘│
+// └──────────────────────────────────────────────────────────────────────────────────────────────────────┘
+// Generate a dashboard
+func (d *Dashboard) Generate(outputFile string, headerText string, bodyText string) error {
 	var (
 		xWidth, xHeight = float64(epdWidth), float64(epdHeight)
+		oneSmeckle      = xWidth / 500
 		err             error
 	)
-
+	// 800 x 480
 	dc := gg.NewContext(epdWidth, epdHeight)
 
 	// set white background
@@ -105,61 +119,58 @@ func (d *Dashboard) Generate(outputFile string) error {
 	dc.Fill()
 
 	// Draw the calendar widget
-	cal, _ := buildCalendarWidget(256, 220, d.location)
+	calendarWidgetWidth := int(xWidth * .32)
+	calendarWidgetHeight := int(xHeight * .45)
+	cal, _ := buildCalendarWidget(calendarWidgetWidth, calendarWidgetHeight, d.location)
 	dc.DrawImage(cal, 0, 0)
 
 	// Draw the weather widget
+	weatherWidgetWidth := int(xWidth * .32)
+	weatherWidgetHeight := int(xHeight * .54)
 	if d.weatherAPIOptions != nil {
-		cal, err = d.buildWeatherWidget(256, 260)
+		cal, err = d.buildWeatherWidget(weatherWidgetWidth, weatherWidgetHeight)
 		if err != nil {
 			return fmt.Errorf("could not build weather widget: %s", err)
 		}
-		dc.DrawImage(cal, 0, 220)
+		dc.DrawImage(cal, 0, calendarWidgetHeight)
 	}
 
-	// Draw the Task header
-	dc.DrawRectangle(266, 10, 524, 64)
+	// Draw the dashboard header background
+	taskHeaderStart := float64(calendarWidgetWidth) + oneSmeckle
+	taskHeaderWidth := xWidth - taskHeaderStart
+	taskHeaderHeight := xWidth * .08
+	dc.DrawRectangle(taskHeaderStart, 0, taskHeaderWidth, taskHeaderHeight)
 	dc.SetRGB(0, 0, 0)
 	dc.Fill()
 
-	// Draw the Task header
-	setFont(dc, 32)
+	// Draw the dashboard header text
+	setFont(dc, taskHeaderHeight/2)
 	dc.SetRGB(1, 1, 1)
-	dc.DrawStringAnchored("TODOs", 276, 35, 0, .5)
+	dc.DrawStringAnchored(headerText, taskHeaderStart+taskHeaderWidth/2, taskHeaderHeight/2, 0.5, 0.25)
 
-	// Draw TaskWarrior
-	if d.taskWarriorOptions.Enable {
-		setFont(dc, 22)
-		dc.SetRGB(0, 0, 0)
-		var yPosition float64 = 64
-		for _, task := range d.getTaskWarriorTasks() {
-			yPosition = yPosition + 32
-			dc.DrawStringAnchored(task, 276, yPosition, 0, .5)
+	dc.SetRGB(0, 0, 0)
 
-			dc.DrawRectangle(266, yPosition+16, 524, 2)
-			dc.Fill()
+	bodyX := taskHeaderStart + oneSmeckle
+	bodyY := taskHeaderHeight + oneSmeckle
+	bodyWidth := taskHeaderWidth
+	bodyHeight := xHeight - taskHeaderHeight
 
-			dc.DrawRectangle(266, yPosition, 2, 16)
-			dc.Fill()
-		}
+	// Convert body text to an image using mdpng
+	var bodyBuf bytes.Buffer
+	err = mdpng.Convert([]byte(bodyText), &bodyBuf,
+		mdpng.WithWidth(int(bodyWidth)),
+		mdpng.WithHeight(int(bodyHeight)),
+		mdpng.WithFontSize(20),
+	)
+	if err != nil {
+		return fmt.Errorf("could not render body text: %s", err)
 	}
 
-	// Draw Dstasks
-	if d.dstaskOptions.Enable {
-		setFont(dc, 22)
-		dc.SetRGB(0, 0, 0)
-		var yPosition float64 = 64
-		for _, task := range d.getDstaskTasks() {
-			yPosition = yPosition + 32
-			dc.DrawStringAnchored(task, 276, yPosition, 0, .5)
-
-			dc.DrawRectangle(266, yPosition+16, 524, 2)
-			dc.Fill()
-
-			dc.DrawRectangle(266, yPosition, 2, 16)
-			dc.Fill()
-		}
+	bodyImg, err := png.Decode(&bodyBuf)
+	if err != nil {
+		return fmt.Errorf("could not decode body image: %s", err)
 	}
+	dc.DrawImage(bodyImg, int(bodyX), int(bodyY))
 
 	// Save the image
 	dc.SavePNG(outputFile)
@@ -171,7 +182,7 @@ func (d *Dashboard) DisplayImage(filePath string) error {
 
 	// If this is a URL, let's download it
 	if isValidURL(filePath) {
-		tmpfile, err := ioutil.TempFile("", "epd-image")
+		tmpfile, err := os.CreateTemp("", "epd	-image")
 		if err != nil {
 			return err
 		}
@@ -211,46 +222,101 @@ func (d *Dashboard) DisplayText(text string) error {
 	dc.Fill()
 	dc.SetRGB(0, 0, 0)
 
+	maxWidth, maxHeight := float64(d.EPDService.Width), float64(d.EPDService.Height)
+
+	fontSize, measuredHeight, err := fitTextToArea(dc, text, maxWidth, maxHeight)
+	if err != nil {
+		return fmt.Errorf("unable to fit text on screen: \n %s", text)
+	}
+
+	dc.DrawStringWrapped(text, 0, (maxHeight-measuredHeight)/2-(fontSize/4), 0, 0, maxWidth, 1, gg.AlignCenter)
+	buf := d.convertImage(dc.Image())
+
+	d.EPDService.Display(buf)
+
+	return nil
+}
+
+// fitTextToArea dynamically adjusts the font size on the given context until the text
+// fits within maxWidth x maxHeight. It returns the final fontSize, measuredHeight, and
+// any error if the text cannot fit. The font face is set on dc upon return.
+func fitTextToArea(dc *gg.Context, text string, maxWidth, maxHeight float64) (float64, float64, error) {
 	var (
-		maxWidth, maxHeight           float64 = float64(d.EPDService.Width), float64(d.EPDService.Height)
-		fontSize                      float64 = 300  // initial font size
-		fontSizeReduction             float64 = 0.95 // reduce the font size by this much until message fits in the display
-		fontSizeMinimum               float64 = 10   // Smallest font size before giving up
-		lineSpacing                   float64 = 1
-		measuredWidth, measuredHeight float64
+		fontSize          float64 = 300  // initial font size
+		fontSizeReduction float64 = 0.95 // reduce the font size by this much until message fits in the display
+		fontSizeMinimum   float64 = 10   // Smallest font size before giving up
+		lineSpacing       float64 = 1
+		measuredWidth     float64
+		measuredHeight    float64
 	)
 
 	font, err := truetype.Parse(goregular.TTF)
 	if err != nil {
-		return err
+		return 0, 0, err
 	}
 	for {
 		face := truetype.NewFace(font, &truetype.Options{Size: fontSize})
 		dc.SetFontFace(face)
 
-		stringLines := dc.WordWrap(text, maxWidth)
+		wrappedLines := dc.WordWrap(text, maxWidth)
+		wrappedText := strings.Join(wrappedLines, "\n")
 
-		measuredWidth, measuredHeight = dc.MeasureMultilineString(strings.Join(stringLines, "\n"), lineSpacing)
+		measuredWidth, measuredHeight = dc.MeasureMultilineString(wrappedText, lineSpacing)
 
-		// If the message fits within the frame, let's break. Otherwise reduce the font size and try again
-		if measuredWidth < maxWidth && measuredHeight <= maxHeight {
+		// If the message fits within the area, break. Otherwise reduce the font size and try again
+		if measuredWidth <= maxWidth && measuredHeight <= maxHeight {
 			break
 		} else {
 			fontSize = fontSize * fontSizeReduction
 		}
 
 		if fontSize < fontSizeMinimum {
-			return fmt.Errorf("unable to fit text on screen: \n %s", text)
+			return 0, 0, fmt.Errorf("unable to fit text in area (%.0fx%.0f)", maxWidth, maxHeight)
 		}
-		// TODO: debug logging: fmt.Printf("font size: %v\n", fontSize)
 	}
 
-	dc.DrawStringWrapped(text, 0, (maxHeight-measuredHeight)/2-(fontSize/4), 0, 0, maxWidth, lineSpacing, gg.AlignCenter)
-	buf := d.convertImage(dc.Image())
+	return fontSize, measuredHeight, nil
+}
 
-	d.EPDService.Display(buf)
+// fitPreformattedTextToArea dynamically adjusts the font size on the given context until
+// all pre-formatted lines fit within maxWidth x maxHeight. Unlike fitTextToArea, it does
+// not re-wrap text — each line is measured individually, preserving original line breaks
+// and indentation.
+func fitPreformattedTextToArea(dc *gg.Context, lines []string, maxWidth, maxHeight float64) (float64, float64, error) {
+	var (
+		fontSize          float64 = 300
+		fontSizeReduction float64 = 0.95
+		fontSizeMinimum   float64 = 10
+		lineSpacing       float64 = 1.4
+	)
 
-	return nil
+	font, err := truetype.Parse(goregular.TTF)
+	if err != nil {
+		return 0, 0, err
+	}
+
+	for {
+		face := truetype.NewFace(font, &truetype.Options{Size: fontSize})
+		dc.SetFontFace(face)
+
+		totalHeight := float64(len(lines)) * fontSize * lineSpacing
+		maxLineWidth := 0.0
+		for _, line := range lines {
+			w, _ := dc.MeasureString(line)
+			if w > maxLineWidth {
+				maxLineWidth = w
+			}
+		}
+
+		if maxLineWidth <= maxWidth && totalHeight <= maxHeight {
+			return fontSize, totalHeight, nil
+		}
+
+		fontSize = fontSize * fontSizeReduction
+		if fontSize < fontSizeMinimum {
+			return 0, 0, fmt.Errorf("unable to fit text in area (%.0fx%.0f)", maxWidth, maxHeight)
+		}
+	}
 }
 
 func (d *Dashboard) getImageFromFilePath(filePath string) (image.Image, error) {
