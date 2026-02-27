@@ -73,6 +73,8 @@ epd refresh-dashboard --header-text "TODOs" --body-text TODOs.md --device pi.loc
 
 These values can also be set via environment variables `EPD_HEADER_TEXT` and `EPD_BODY_TEXT`.
 
+![dashboard-image](https://github.com/justmiles/epd/releases/download/1.0.0/dashboard-image.png)
+
 
 ## Supported Displays
 
