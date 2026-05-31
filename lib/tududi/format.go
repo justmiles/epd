@@ -12,9 +12,12 @@ const (
 )
 
 // priorityArrow converts a Tududi priority integer to a B&W-safe ASCII indicator.
-// Priority: 1=low, 2=medium, 3=high, 4=urgent
-func priorityArrow(p int) string {
-	switch p {
+// Priority: 1=low, 2=medium, 3=high, 4=urgent; nil means unset (treated as medium).
+func priorityArrow(p *int) string {
+	if p == nil {
+		return " -"
+	}
+	switch *p {
 	case PriorityUrgent:
 		return "^^"
 	case PriorityHigh:
@@ -27,6 +30,7 @@ func priorityArrow(p int) string {
 		return " -"
 	}
 }
+
 
 // formatDueDate formats a Tududi due-date string ("2006-01-02") to a short
 // human-readable form ("Jan 02"). Returns "—" if the date is nil or unparseable.

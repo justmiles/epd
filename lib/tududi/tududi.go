@@ -37,7 +37,7 @@ type Task struct {
 	ID        int     `json:"id"`
 	Name      string  `json:"name"`
 	Status    int     `json:"status"`    // 0=not_started, 1=in_progress, 2=completed, 6=archived
-	Priority  int     `json:"priority"`  // 1=low, 2=medium, 3=high, 4=urgent
+	Priority  *int    `json:"priority"`  // 1=low, 2=medium, 3=high, 4=urgent; null if unset
 	DueDate   *string `json:"due_date"`  // "2026-02-10" or null
 	ProjectID *int    `json:"project_id"`
 }
@@ -92,9 +92,22 @@ func (c *Client) ListTasks(projectID *int) ([]Task, error) {
 		return nil, fmt.Errorf("GET %s: unexpected status %s", url, resp.Status)
 	}
 
-	var tasks []Task
-	if err := json.NewDecoder(resp.Body).Decode(&tasks); err != nil {
+	var raw json.RawMessage
+	if err := json.NewDecoder(resp.Body).Decode(&raw); err != nil {
 		return nil, fmt.Errorf("decoding tasks response: %w", err)
+	}
+
+	// Tududi returns {"tasks": [...]} — unwrap if needed
+	var tasks []Task
+	if err := json.Unmarshal(raw, &tasks); err != nil {
+		// Try object wrapper: {"tasks": [...]}
+		var wrapper struct {
+			Tasks []Task `json:"tasks"`
+		}
+		if err2 := json.Unmarshal(raw, &wrapper); err2 != nil {
+			return nil, fmt.Errorf("decoding tasks response: %w", err)
+		}
+		tasks = wrapper.Tasks
 	}
 
 	// Filter out completed and archived tasks
@@ -108,8 +121,15 @@ func (c *Client) ListTasks(projectID *int) ([]Task, error) {
 	// Sort: priority desc (4→1), then due date asc (nulls last)
 	sort.Slice(active, func(i, j int) bool {
 		ti, tj := active[i], active[j]
-		if ti.Priority != tj.Priority {
-			return ti.Priority > tj.Priority
+		pi, pj := 0, 0
+		if ti.Priority != nil {
+			pi = *ti.Priority
+		}
+		if tj.Priority != nil {
+			pj = *tj.Priority
+		}
+		if pi != pj {
+			return pi > pj
 		}
 		// Both have no due date — equal
 		if ti.DueDate == nil && tj.DueDate == nil {
@@ -149,9 +169,21 @@ func (c *Client) ListProjects() ([]Project, error) {
 		return nil, fmt.Errorf("GET %s: unexpected status %s", url, resp.Status)
 	}
 
-	var projects []Project
-	if err := json.NewDecoder(resp.Body).Decode(&projects); err != nil {
+	var raw json.RawMessage
+	if err := json.NewDecoder(resp.Body).Decode(&raw); err != nil {
 		return nil, fmt.Errorf("decoding projects response: %w", err)
+	}
+
+	// Tududi returns {"projects": [...]} — unwrap if needed
+	var projects []Project
+	if err := json.Unmarshal(raw, &projects); err != nil {
+		var wrapper struct {
+			Projects []Project `json:"projects"`
+		}
+		if err2 := json.Unmarshal(raw, &wrapper); err2 != nil {
+			return nil, fmt.Errorf("decoding projects response: %w", err)
+		}
+		projects = wrapper.Projects
 	}
 
 	return projects, nil
