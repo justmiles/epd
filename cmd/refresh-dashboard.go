@@ -71,6 +71,10 @@ var refreshDashboardCmd = &cobra.Command{
 			if headerText == "" && autoHeader != "" {
 				headerText = autoHeader
 			}
+			// No project filter — use a generic header
+			if headerText == "" {
+				headerText = "Tududi Tasks"
+			}
 		}
 
 		err = d.Generate(outputImage, headerText, bodyText)

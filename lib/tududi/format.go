@@ -99,10 +99,10 @@ func FormatTasksAsMarkdown(tasks []Task, maxTasks int) string {
 	}
 
 	var sb strings.Builder
-	fmt.Fprintf(&sb, "| %-50s | %-6s | Pri |\n", "Task", "Due")
-	fmt.Fprintf(&sb, "|%s|%s|%s|\n", strings.Repeat("-", 52), strings.Repeat("-", 8), strings.Repeat("-", 5))
+	fmt.Fprintf(&sb, "| %-58s | Pri |\n", "Task")
+	fmt.Fprintf(&sb, "|%s|%s|\n", strings.Repeat("-", 60), strings.Repeat("-", 5))
 	for _, t := range tasks {
-		fmt.Fprintf(&sb, "| %-50s | %-6s | %s |\n", truncate(t.Name, maxTaskNameLen), formatDueDate(t.DueDate), priorityArrow(t.Priority))
+		fmt.Fprintf(&sb, "| %-58s | %s |\n", truncate(t.Name, 58), priorityArrow(t.Priority))
 	}
 	return sb.String()
 }
@@ -184,12 +184,11 @@ func FormatTasksByProject(tasks []Task, projectNames map[int]string, maxPerProje
 			sb.WriteString("\n")
 		}
 		fmt.Fprintf(&sb, "**%s**\n\n", g.name)
-		fmt.Fprintf(&sb, "| %-38s | %-6s | Pri |\n", "Task", "Due")
-		fmt.Fprintf(&sb, "|%s|%s|%s|\n", strings.Repeat("-", 40), strings.Repeat("-", 8), strings.Repeat("-", 5))
+		fmt.Fprintf(&sb, "| %-46s | Pri |\n", "Task")
+		fmt.Fprintf(&sb, "|%s|%s|\n", strings.Repeat("-", 48), strings.Repeat("-", 5))
 		for _, t := range shown {
-			fmt.Fprintf(&sb, "| %-38s | %-6s | %s |\n",
-				truncate(t.Name, maxTaskNameGroupedLen),
-				formatDueDate(t.DueDate),
+			fmt.Fprintf(&sb, "| %-46s | %s |\n",
+				truncate(t.Name, 46),
 				priorityArrow(t.Priority),
 			)
 		}
