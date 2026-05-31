@@ -62,9 +62,14 @@ var refreshDashboardCmd = &cobra.Command{
 		// If --body-text is not set, attempt to populate it from Tududi.
 		// --body-text always takes precedence over Tududi.
 		if bodyText == "" && tududiOptions.URL != "" && tududiOptions.APIToken != "" {
-			bodyText, err = fetchTududiBodyText(tududiOptions)
+			var autoHeader string
+			bodyText, autoHeader, err = fetchTududiBodyText(tududiOptions)
 			if err != nil {
 				log.Fatalf("error fetching tasks from Tududi: %s", err)
+			}
+			// Use the resolved project name as the header when --header-text wasn't provided
+			if headerText == "" && autoHeader != "" {
+				headerText = autoHeader
 			}
 		}
 
@@ -108,29 +113,57 @@ var refreshDashboardCmd = &cobra.Command{
 	},
 }
 
-// fetchTududiBodyText connects to the Tududi API and returns a GFM table of
-// active tasks as a Markdown string, ready to pass to dashboard.Generate().
-func fetchTududiBodyText(opts tududi.Options) (string, error) {
+// fetchTududiBodyText connects to the Tududi API and returns:
+//   - body: a GFM Markdown string ready to pass to dashboard.Generate()
+//   - autoHeader: the resolved project name when filtering by project (empty otherwise)
+func fetchTududiBodyText(opts tududi.Options) (body, autoHeader string, err error) {
 	client := tududi.NewClient(opts.URL, opts.APIToken)
 
 	var projectID *int
+
 	if opts.Project != "" {
-		// Try as integer ID first, then fall back to name match
-		if id, err := strconv.Atoi(opts.Project); err == nil {
+		// Try integer ID first, then fall back to name match
+		if id, e := strconv.Atoi(opts.Project); e == nil {
 			projectID = &id
+			// Resolve the name for the auto-header
+			proj, e2 := client.FindProjectByName(opts.Project)
+			if e2 == nil {
+				autoHeader = proj.Name
+			}
 		} else {
-			proj, err := client.FindProjectByName(opts.Project)
-			if err != nil {
-				return "", fmt.Errorf("finding project %q: %w", opts.Project, err)
+			proj, e2 := client.FindProjectByName(opts.Project)
+			if e2 != nil {
+				return "", "", fmt.Errorf("finding project %q: %w", opts.Project, e2)
 			}
 			projectID = &proj.ID
+			autoHeader = proj.Name
 		}
 	}
 
 	tasks, err := client.ListTasks(projectID)
 	if err != nil {
-		return "", fmt.Errorf("listing tasks: %w", err)
+		return "", "", fmt.Errorf("listing tasks: %w", err)
 	}
 
-	return tududi.FormatTasksAsMarkdown(tasks, opts.MaxTasks), nil
+	if projectID != nil {
+		// Single-project mode: flat list
+		body = tududi.FormatTasksAsMarkdown(tasks, opts.MaxTasks)
+	} else {
+		// All-projects mode: grouped by project, top 3 per group
+		maxPerProject := opts.MaxTasks
+		if maxPerProject <= 0 || maxPerProject > 3 {
+			maxPerProject = 3
+		}
+		projects, e := client.ListProjects()
+		projectNames := make(map[int]string)
+		if e == nil {
+			for _, p := range projects {
+				projectNames[p.ID] = p.Name
+			}
+		}
+		body = tududi.FormatTasksByProject(tasks, projectNames, maxPerProject)
+	}
+
+	return body, autoHeader, nil
 }
+
