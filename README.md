@@ -73,6 +73,38 @@ epd refresh-dashboard --header-text "TODOs" --body-text TODOs.md --device pi.loc
 
 These values can also be set via environment variables `EPD_HEADER_TEXT` and `EPD_BODY_TEXT`.
 
+## Tududi Integration
+
+Display your [Tududi](https://github.com/chrisvel/tududi) tasks on the e-paper display. When configured, `refresh-dashboard` fetches active tasks from the Tududi API and renders them as a compact table in the dashboard body.
+
+> **Note:** `--body-text` takes precedence. Tududi is only used when `--body-text` is not set.
+
+```bash
+# Set your Tududi credentials
+export TUDUDI_URL="http://localhost:3004"
+export TUDUDI_API_TOKEN="your-api-token"
+
+# Show all active tasks
+epd refresh-dashboard \
+  --header-text "Tasks" \
+  --device pi.local:50051
+
+# Filter to a specific project (by name or ID)
+epd refresh-dashboard \
+  --header-text "Work" \
+  --tududi-project "Work" \
+  --device pi.local:50051
+
+# Preview locally without pushing to the display
+epd refresh-dashboard \
+  --header-text "Tasks" \
+  --preview
+```
+
+Tasks are sorted by priority (urgent first), then by due date (soonest first). Up to 15 tasks are shown; priority is indicated by `^^` (urgent), `^` (high), `-` (medium), `v` (low).
+
+
+
 ![dashboard-image](https://github.com/justmiles/epd/releases/download/1.0.0/dashboard-image.png)
 
 

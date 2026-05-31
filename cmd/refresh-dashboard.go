@@ -4,9 +4,11 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strconv"
 
 	dashboard "github.com/justmiles/epd/lib/dashboard"
 	"github.com/justmiles/epd/lib/display"
+	"github.com/justmiles/epd/lib/tududi"
 	"github.com/spf13/cobra"
 )
 
@@ -15,6 +17,7 @@ var (
 	location          string
 	headerText        string
 	bodyText          string
+	tududiOptions     tududi.Options
 )
 
 func init() {
@@ -28,6 +31,12 @@ func init() {
 	refreshDashboardCmd.PersistentFlags().StringVar(&headerText, "header-text", envDefault("EPD_HEADER_TEXT", ""), "custom header text for the dashboard (env: EPD_HEADER_TEXT)")
 	refreshDashboardCmd.PersistentFlags().StringVar(&bodyText, "body-text", envDefault("EPD_BODY_TEXT", ""), "custom body text for the dashboard (env: EPD_BODY_TEXT)")
 	refreshDashboardCmd.PersistentFlags().BoolVar(&previewImage, "preview", false, "preview the dashboard instead of updating the display")
+
+	// Tududi provider flags
+	refreshDashboardCmd.PersistentFlags().StringVar(&tududiOptions.URL, "tududi-url", envDefault("TUDUDI_URL", ""), "Tududi base URL, e.g. http://localhost:3004 (env: TUDUDI_URL)")
+	refreshDashboardCmd.PersistentFlags().StringVar(&tududiOptions.APIToken, "tududi-api-token", envDefault("TUDUDI_API_TOKEN", ""), "Tududi API bearer token (env: TUDUDI_API_TOKEN)")
+	refreshDashboardCmd.PersistentFlags().StringVar(&tududiOptions.Project, "tududi-project", envDefault("TUDUDI_PROJECT", ""), "only show tasks in this project — ID or name (env: TUDUDI_PROJECT)")
+	refreshDashboardCmd.PersistentFlags().IntVar(&tududiOptions.MaxTasks, "tududi-max-tasks", envDefaultInt("TUDUDI_MAX_TASKS", 15), "max number of Tududi tasks to display (env: TUDUDI_MAX_TASKS)")
 }
 
 var refreshDashboardCmd = &cobra.Command{
@@ -49,6 +58,15 @@ var refreshDashboardCmd = &cobra.Command{
 		// If headerText or bodyText point to a file, read the file contents
 		headerText = resolveTextOrFile(headerText)
 		bodyText = resolveTextOrFile(bodyText)
+
+		// If --body-text is not set, attempt to populate it from Tududi.
+		// --body-text always takes precedence over Tududi.
+		if bodyText == "" && tududiOptions.URL != "" && tududiOptions.APIToken != "" {
+			bodyText, err = fetchTududiBodyText(tududiOptions)
+			if err != nil {
+				log.Fatalf("error fetching tasks from Tududi: %s", err)
+			}
+		}
 
 		err = d.Generate(outputImage, headerText, bodyText)
 		if err != nil {
@@ -88,4 +106,31 @@ var refreshDashboardCmd = &cobra.Command{
 			svc.Sleep()
 		}
 	},
+}
+
+// fetchTududiBodyText connects to the Tududi API and returns a GFM table of
+// active tasks as a Markdown string, ready to pass to dashboard.Generate().
+func fetchTududiBodyText(opts tududi.Options) (string, error) {
+	client := tududi.NewClient(opts.URL, opts.APIToken)
+
+	var projectID *int
+	if opts.Project != "" {
+		// Try as integer ID first, then fall back to name match
+		if id, err := strconv.Atoi(opts.Project); err == nil {
+			projectID = &id
+		} else {
+			proj, err := client.FindProjectByName(opts.Project)
+			if err != nil {
+				return "", fmt.Errorf("finding project %q: %w", opts.Project, err)
+			}
+			projectID = &proj.ID
+		}
+	}
+
+	tasks, err := client.ListTasks(projectID)
+	if err != nil {
+		return "", fmt.Errorf("listing tasks: %w", err)
+	}
+
+	return tududi.FormatTasksAsMarkdown(tasks, opts.MaxTasks), nil
 }
