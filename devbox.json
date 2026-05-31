@@ -5,6 +5,26 @@
         "golangci-lint@latest"
     ],
     "shell": {
-        "init_hook": []
+        "init_hook": [],
+        "scripts": {
+            "build": [
+                "go build -o epd ."
+            ],
+            "build-pi": [
+                "CGO_ENABLED=0 GOOS=linux GOARCH=arm GOARM=6 go build -o epd-armv6 ."
+            ],
+            "deploy": [
+                "set -e",
+                "PI_HOST=$(echo \"${EPD_DEVICE}\" | cut -d: -f1)",
+                "if [ -z \"${PI_HOST}\" ]; then echo 'EPD_DEVICE not set (expected host:port)'; exit 1; fi",
+                "echo \"Building for ARMv6...\"",
+                "CGO_ENABLED=0 GOOS=linux GOARCH=arm GOARM=6 go build -o epd-armv6 .",
+                "echo \"Copying to ${PI_HOST}...\"",
+                "scp epd-armv6 pi@${PI_HOST}:/tmp/epd-new",
+                "echo \"Installing and restarting service...\"",
+                "ssh pi@${PI_HOST} 'sudo mv /tmp/epd-new /usr/local/bin/epd && sudo chmod +x /usr/local/bin/epd && sudo systemctl restart epd && sudo systemctl status epd --no-pager'",
+                "echo \"Deploy complete.\""
+            ]
+        }
     }
 }
